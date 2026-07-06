@@ -111,11 +111,11 @@ async def discovery_agent(
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-async def _discover_jobs_with_retry(session, criteria, source_name):
+async def discover_jobs_with_retry(session, criteria, source_name):
     return await discover_jobs(db=session, criteria=criteria, source_name=source_name)
 
 
-def _build_job_create(job: Job, fallback_source: str) -> JobCreate:
+def build_job_create(job: Job, fallback_source: str) -> JobCreate:
     source_info = job.sources[0] if job.sources else None
     source_create = (
         JobSourceCreate(
@@ -154,7 +154,7 @@ async def discovery_worker(state: DiscoveryWorkerInput) -> dict[str, Any]:
     criteria = JobSearchCriteria(**criteria_dict)
     async with async_session() as session:
         try:
-            result = await _discover_jobs_with_retry(session, criteria, source)
+            result = await discover_jobs_with_retry(session, criteria, source)
         except Exception:
             logger.exception(f"Discovery failed for source {source} after retries")
             return {"discovered_job_ids": []}

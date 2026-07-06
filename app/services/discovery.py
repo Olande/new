@@ -38,7 +38,7 @@ class DiscoveryResult:
         self.job_ids: list[str] = job_ids or []
 
 
-async def _upsert_job(
+async def upsert_job(
     db: AsyncSession, normalized, now_utc: datetime
 ) -> tuple[Job, bool]:
     """Upsert a Job by dedup_hash. Returns (job, created)."""
@@ -74,7 +74,7 @@ async def _upsert_job(
     return job, False
 
 
-async def _upsert_job_source(
+async def upsert_job_source(
     db: AsyncSession, job: Job, normalized, now_utc: datetime
 ) -> None:
     """Upsert a JobSource by (source_name, source_job_id)."""
@@ -101,7 +101,7 @@ async def _upsert_job_source(
         source.unconfirmed_count = 0
 
 
-async def _close_stale_jobs(
+async def close_stale_jobs(
     db: AsyncSession,
     source_name: str,
     seen_source_job_ids: set[str],
@@ -164,7 +164,7 @@ async def discover_jobs(
     result = DiscoveryResult()
     seen_source_job_ids: set[str] = set()
 
-    async def _process_stream(jdl_client: JobDataLakeClient) -> None:
+    async def process_stream(jdl_client: JobDataLakeClient) -> None:
         async for raw_job in jdl_client.search_all_results(
             criteria, per_page=settings.discovery_per_page, page_cap=page_cap
         ):
@@ -175,25 +175,25 @@ async def discover_jobs(
                 continue
 
             now_utc = datetime.now(timezone.utc)
-            job, created = await _upsert_job(db, normalized, now_utc)
+            job, created = await upsert_job(db, normalized, now_utc)
             if created:
                 result.jobs_created += 1
             else:
                 result.jobs_updated += 1
 
-            await _upsert_job_source(db, job, normalized, now_utc)
+            await upsert_job_source(db, job, normalized, now_utc)
             result.job_ids.append(str(job.id))
             seen_source_job_ids.add(normalized.source.source_job_id)
 
     if client is not None:
-        await _process_stream(client)
+        await process_stream(client)
     else:
         async with JobDataLakeClient(
             api_key=settings.job_data_lake_api_key
         ) as jdl_client:
-            await _process_stream(jdl_client)
+            await process_stream(jdl_client)
 
-    await _close_stale_jobs(
+    await close_stale_jobs(
         db, source_name, seen_source_job_ids, unconfirmed_limit, result
     )
 

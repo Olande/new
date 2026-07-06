@@ -14,10 +14,10 @@ from app.db.base import async_session
 from app.db.models.job import Job
 from app.memory.core import get_current_memory
 
-_ = load_dotenv()
+load_dotenv()
 
 
-def _score_job(job_skills: set[str], user_skills: set[str]) -> float:
+def score_job(job_skills: set[str], user_skills: set[str]) -> float:
     if not job_skills or not user_skills:
         return 0.80
     overlap = job_skills & user_skills
@@ -59,7 +59,7 @@ async def matching_agent(state: CareerPilotState) -> dict[str, Any]:
     candidates = [
         {
             "job_id": str(job.id),
-            "score": _score_job({s.lower() for s in job.required_skills}, user_skills),
+            "score": score_job({s.lower() for s in job.required_skills}, user_skills),
         }
         for job in jobs
     ]

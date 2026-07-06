@@ -21,11 +21,11 @@ class AgentWorker:
         self.running = True
 
         # Periodic stale task cleanup (run once on start, and every 5 mins)
-        asyncio.create_task(self._reap_stale_tasks_loop())
+        asyncio.create_task(self.reap_stale_tasks_loop())
 
         while self.running:
             try:
-                task_processed = await self._poll_and_execute()
+                task_processed = await self.poll_and_execute()
                 if not task_processed:
                     await asyncio.sleep(1.0)
             except Exception as e:
@@ -36,7 +36,7 @@ class AgentWorker:
         logger.info(f"Stopping agent worker: {self.name}")
         self.running = False
 
-    async def _poll_and_execute(self) -> bool:
+    async def poll_and_execute(self) -> bool:
         """Poll the DB for a pending task and execute it."""
         async with async_session() as session:
             # Query a pending task using SELECT FOR UPDATE SKIP LOCKED
@@ -86,30 +86,30 @@ class AgentWorker:
                 state = await master_graph.aget_state(config)
                 if state.next:
                     # Thread paused at interrupt
-                    await self._update_task_status(
+                    await self.update_task_status(
                         task_id,
                         status="paused",
                         result={"next_nodes": list(state.next)},
                     )
                 else:
                     # Graph completed
-                    await self._update_task_status(
+                    await self.update_task_status(
                         task_id, status="completed", result=state.values
                     )
             except GraphInterrupt:
                 # Graph hit an interrupt (paused for human interaction)
                 state = await master_graph.aget_state(config)
-                await self._update_task_status(
+                await self.update_task_status(
                     task_id, status="paused", result={"next_nodes": list(state.next)}
                 )
 
         except Exception as e:
             logger.exception(f"Task {task_id} failed with error: {e}")
-            await self._update_task_status(task_id, status="failed", error=str(e))
+            await self.update_task_status(task_id, status="failed", error=str(e))
 
         return True
 
-    async def _update_task_status(
+    async def update_task_status(
         self,
         task_id: uuid.UUID,
         status: str,
@@ -126,34 +126,34 @@ class AgentWorker:
                     task.completed_at = datetime.now(timezone.utc)
                 if result is not None:
                     # Clean up result values for serialization (e.g. UUID to str)
-                    task.result = self._serialize_clean(result)
+                    task.result = self.serialize_clean(result)
                 if error is not None:
                     task.error = error
                 task.locked_by = None
                 task.locked_at = None
 
-    def _serialize_clean(self, obj):
+    def serialize_clean(self, obj):
         """Recursively convert unserializable types to string."""
         if isinstance(obj, dict):
-            return {k: self._serialize_clean(v) for k, v in obj.items()}
+            return {k: self.serialize_clean(v) for k, v in obj.items()}
         elif isinstance(obj, list):
-            return [self._serialize_clean(x) for x in obj]
+            return [self.serialize_clean(x) for x in obj]
         elif isinstance(obj, (uuid.UUID, datetime)):
             return str(obj)
         elif hasattr(obj, "content"):  # LangChain messages
             return {"type": obj.__class__.__name__, "content": str(obj.content)}
         return obj
 
-    async def _reap_stale_tasks_loop(self):
+    async def reap_stale_tasks_loop(self):
         """Background task to reclaim tasks stuck in running status."""
         while self.running:
             try:
-                await self._reap_stale_tasks()
+                await self.reap_stale_tasks()
             except Exception as e:
                 logger.error(f"Error in stale task reaper: {e}")
             await asyncio.sleep(300.0)
 
-    async def _reap_stale_tasks(self):
+    async def reap_stale_tasks(self):
         """Find running tasks with no update in the last 10 minutes and make them pending again."""
         ten_mins_ago = datetime.now(timezone.utc) - timedelta(minutes=10)
         async with async_session.begin() as session:

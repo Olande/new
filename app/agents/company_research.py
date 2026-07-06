@@ -18,7 +18,7 @@ def get_tavily(search_depth: str = "advanced", k: int = 5, include_answer: bool 
     )
 
 
-async def _research_one_company(company: str) -> tuple[str, str]:
+async def research_one_company(company: str) -> tuple[str, str]:
     logger.info(f"Researching company: {company}")
     tavily_search = get_tavily()
     llm = get_llm()
@@ -68,7 +68,7 @@ async def company_research_agent(state: dict) -> dict[str, Any]:
     companies = list({job.company_name for job in jobs if job.company_name})
 
     results = await asyncio.gather(
-        *(_research_one_company(c) for c in companies),
+        *(research_one_company(c) for c in companies),
         return_exceptions=True,
     )
 
