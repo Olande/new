@@ -123,23 +123,23 @@ builder.add_node("tracker_subgraph", tracker_node)
 
 builder.add_edge(START, "supervisor")
 
-_master_graph = None
-_compile_lock = asyncio.Lock()
+master_graph_instance = None
+compile_lock = asyncio.Lock()
 
 
 async def get_master_graph():
     """Return the singleton compiled LangGraph instance."""
-    global _master_graph
+    global master_graph_instance
 
-    if _master_graph is not None:
-        return _master_graph
+    if master_graph_instance is not None:
+        return master_graph_instance
 
-    async with _compile_lock:
-        if _master_graph is None:
+    async with compile_lock:
+        if master_graph_instance is None:
             logger.info("Compiling LangGraph with PostgreSQL checkpointer.")
 
             checkpointer = await get_checkpointer()
 
-            _master_graph = builder.compile(checkpointer=checkpointer)
+            master_graph_instance = builder.compile(checkpointer=checkpointer)
 
-    return _master_graph
+    return master_graph_instance

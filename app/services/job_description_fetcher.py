@@ -16,7 +16,7 @@ FETCH_TIMEOUT_S = 20.0
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-async def _fetch_via_jina_reader(url: str) -> str:
+async def fetch_via_jina_reader(url: str) -> str:
     async with httpx.AsyncClient(timeout=FETCH_TIMEOUT_S) as client:
         resp = await client.get(
             f"{JINA_READER_BASE}{url}",
@@ -49,7 +49,7 @@ async def fetch_and_store_job_description(
     url = source.source_url
 
     try:
-        cleaned_text = await _fetch_via_jina_reader(url)
+        cleaned_text = await fetch_via_jina_reader(url)
     except Exception as exc:
         logger.warning(f"Failed to fetch description for job_id={job_id}: {exc}")
         return None

@@ -22,46 +22,46 @@ pool: AsyncConnectionPool = AsyncConnectionPool(
     open=False,
 )
 
-_checkpointer: AsyncPostgresSaver | None = None
-_pool_open = False
-_initialized = False
+checkpointer_instance: AsyncPostgresSaver | None = None
+pool_open = False
+is_initialized = False
 
-_init_lock = asyncio.Lock()
+init_lock = asyncio.Lock()
 
 
 async def get_checkpointer() -> AsyncPostgresSaver:
 
-    global _checkpointer, _pool_open, _initialized
+    global checkpointer_instance, pool_open, is_initialized
 
-    async with _init_lock:
-        if not _pool_open:
+    async with init_lock:
+        if not pool_open:
             logger.info("Opening PostgreSQL connection pool.")
             await pool.open()
-            _pool_open = True
+            pool_open = True
 
-        if _checkpointer is None:
+        if checkpointer_instance is None:
             logger.info("Creating AsyncPostgresSaver.")
-            _checkpointer = AsyncPostgresSaver(pool)
+            checkpointer_instance = AsyncPostgresSaver(pool)
 
-        if not _initialized:
+        if not is_initialized:
             logger.info("Initializing LangGraph checkpoint tables.")
-            await _checkpointer.setup()
-            _initialized = True
+            await checkpointer_instance.setup()
+            is_initialized = True
 
-    return _checkpointer
+    return checkpointer_instance
 
 
 async def close_checkpointer() -> None:
     """
     Gracefully close the PostgreSQL connection pool.
     """
-    global _checkpointer, _pool_open, _initialized
+    global checkpointer_instance, pool_open, is_initialized
 
-    async with _init_lock:
-        if _pool_open:
+    async with init_lock:
+        if pool_open:
             logger.info("Closing PostgreSQL connection pool.")
             await pool.close()
 
-        _checkpointer = None
-        _pool_open = False
-        _initialized = False
+        checkpointer_instance = None
+        pool_open = False
+        is_initialized = False
