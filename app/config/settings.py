@@ -1,0 +1,34 @@
+from pydantic import model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
+
+    env: str = "development"
+
+    database_url: str = "postgresql+asyncpg://localhost:5432/project"
+    google_api_key: str | None = None
+    deepseek_api_key: str | None = None
+    nvidia_api_key: str | None = None
+    job_data_lake_api_key: str | None = None
+    jina_api_key: str | None = None
+    tavily_api_key: str | None = None
+    discovery_page_cap: int | None = 10
+    discovery_per_page: int = 10
+    discovery_unconfirmed_limit: int = 3
+
+    @model_validator(mode="after")
+    def validate_production_config(self) -> "Settings":
+        if self.env == "production":
+            default_db_url = "postgresql+asyncpg://localhost:5432/project"
+            if self.database_url == default_db_url:
+                raise ValueError(
+                    "database_url must be explicitly configured in production"
+                )
+        return self
+
+
+settings = Settings()
