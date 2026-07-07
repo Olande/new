@@ -1,6 +1,7 @@
 import time
+
 from loguru import logger
-from prometheus_client import Counter, Histogram, Gauge
+from prometheus_client import Counter, Gauge, Histogram
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
@@ -51,7 +52,6 @@ def after_cursor_execute(conn, cursor, statement, parameters, context, executema
     elif stmt_lower.startswith("delete"):
         q_type = "delete"
 
-    # Optional: you could make this more granular like checking for "hybrid_search" or "career_memory"
     if "pg_vector" in stmt_lower or "job" in stmt_lower and q_type == "select":
         q_type = "select_search"
 

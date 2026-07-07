@@ -1,6 +1,7 @@
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool
+
 from app.config.settings import settings
 
 engine = create_async_engine(settings.database_url, echo=False, poolclass=NullPool)
@@ -16,8 +17,8 @@ async def get_db():
         yield session
 
 
-# Load all models to ensure relations/backrefs are registered on metadata
-from app.db import models  # noqa: F401,E402
 from sqlalchemy.orm import configure_mappers  # noqa: E402
+
+from app.db import models  # noqa: F401,E402
 
 configure_mappers()

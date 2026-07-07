@@ -5,29 +5,31 @@ from dotenv import load_dotenv
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 from loguru import logger
+from sqlalchemy import select
 
 from app.agents.company_research import company_research_agent
-from app.schemas.graph_state import CareerPilotState
-
-from sqlalchemy import select
 from app.db.base import async_session
 from app.db.models.job import Job
 from app.memory.core import get_current_memory
+from app.schemas.graph_state import CareerPilotState
 
 load_dotenv()
 
 
+# Check the overlap between job and user skills using Jaccard score
 def score_job(job_skills: set[str], user_skills: set[str]) -> float:
-    if not job_skills or not user_skills:
-        return 0.80
-    overlap = job_skills & user_skills
-    return round(min(max(0.5 + (len(overlap) / len(job_skills)) * 0.5, 0.0), 1.0), 2)
+    union = job_skills | user_skills
+
+    if not union:
+        return 1.0
+
+    return round(len(job_skills & user_skills) / len(union), 2)
 
 
 async def matching_agent(state: CareerPilotState) -> dict[str, Any]:
     logger.info("Matching agent starting match score computation")
     discovered_job_ids = state.get("discovered_job_ids") or []
-    user_id = state["user_id"]
+    user_id = state.get("user_id", "00000000-0000-0000-0000-000000000000")
     user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
     job_uuids = [
         uuid.UUID(jid) if isinstance(jid, str) else jid for jid in discovered_job_ids

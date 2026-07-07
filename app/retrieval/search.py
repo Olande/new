@@ -18,7 +18,6 @@ async def hybrid_search(
 ) -> list[JobCandidate]:
     """
     Perform multi-stage hybrid search using weighted Reciprocal Rank Fusion (RRF).
-    Fusion logic lives in the hybrid_search_jobs Postgres function.
     """
     clean_query = query_text.strip() if query_text else ""
     stmt = text(

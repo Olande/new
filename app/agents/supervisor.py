@@ -5,8 +5,8 @@ from langgraph.types import Command
 from loguru import logger
 
 from app.core.llm import get_llm
-from app.schemas.graph_state import CareerPilotState
 from app.schemas.agents.supervisor_agent import SupervisorDecision
+from app.schemas.graph_state import CareerPilotState
 
 supervisor_prompt = ChatPromptTemplate.from_template(
     """

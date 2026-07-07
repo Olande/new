@@ -2,7 +2,7 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install standard system dependencies
+
 RUN apt-get update && apt-get install -y \
     curl \
     git \
@@ -10,13 +10,13 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv for fast dependency management
+# Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
 # Copy the dependency definitions
 COPY pyproject.toml uv.lock ./
 
-# Install python dependencies using uv
+# Install python dependencies
 RUN uv sync --frozen --no-cache
 
 # Copy the rest of the application

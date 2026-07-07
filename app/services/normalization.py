@@ -1,10 +1,10 @@
 import hashlib
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from dateutil.parser import isoparse
-from pydantic import BaseModel, Field, AliasChoices, field_validator, model_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
 from app.schemas.job import JobCreate, JobSourceCreate
 
@@ -79,11 +79,11 @@ class RawJobInput(BaseModel):
         if value is None:
             return None
         try:
-            if isinstance(value, (int, float)):
-                return datetime.fromtimestamp(value / 1000, tz=timezone.utc)
+            if isinstance(value, (int | float)):
+                return datetime.fromtimestamp(value / 1000, tz=UTC)
             if isinstance(value, str):
                 if value.isdigit():
-                    return datetime.fromtimestamp(int(value) / 1000, tz=timezone.utc)
+                    return datetime.fromtimestamp(int(value) / 1000, tz=UTC)
                 return isoparse(value)
         except (ValueError, TypeError, OverflowError):
             pass
@@ -124,7 +124,7 @@ def normalize_job(raw: dict, source_name: str = "primary") -> JobCreate:
 
     skills = normalize_skills(parsed_input.required_skills)
 
-    first_seen_at = parsed_input.first_seen_at or datetime.now(timezone.utc)
+    first_seen_at = parsed_input.first_seen_at or datetime.now(UTC)
 
     locations = parsed_input.locations
     dedup_hash = compute_dedup_hash(

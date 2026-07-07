@@ -3,14 +3,14 @@ import uuid
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, String, text, Enum, Index
+from sqlalchemy import DateTime, Enum, Index, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 
 
-class EntityType(str, enum.Enum):
+class EntityType(enum.StrEnum):
     job = "job"
     career_memory = "career_memory"
 

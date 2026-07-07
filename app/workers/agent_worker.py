@@ -1,15 +1,16 @@
 import asyncio
 import sys
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
+
+from langgraph.errors import GraphInterrupt
+from langgraph.types import Command
 from loguru import logger
 from sqlalchemy import select, update
 
 from app.db.base import async_session
 from app.db.models.agent_task import AgentTask
 from app.graphs.master_graph import get_master_graph
-from langgraph.errors import GraphInterrupt
-from langgraph.types import Command
 
 
 class AgentWorker:
@@ -21,7 +22,7 @@ class AgentWorker:
         logger.info(f"Starting agent worker: {self.name}")
         self.running = True
 
-        # Periodic stale task cleanup (run once on start, and every 5 mins)
+        # Periodic stale task cleanup
         asyncio.create_task(self.reap_stale_tasks_loop())
 
         while self.running:
@@ -40,7 +41,6 @@ class AgentWorker:
     async def poll_and_execute(self) -> bool:
         """Poll the DB for a pending task and execute it."""
         async with async_session() as session:
-            # Query a pending task using SELECT FOR UPDATE SKIP LOCKED
             stmt = (
                 select(AgentTask)
                 .where(AgentTask.status == "pending")
@@ -56,7 +56,7 @@ class AgentWorker:
 
             logger.info(f"Claimed task: {task.id} (Graph: {task.graph_name})")
             task.status = "running"
-            task.locked_at = datetime.now(timezone.utc)
+            task.locked_at = datetime.now(UTC)
             task.locked_by = self.name
             task.attempts += 1
             await session.commit()
@@ -66,7 +66,6 @@ class AgentWorker:
             thread_id = task.thread_id
             graph_name = task.graph_name
 
-        # Execute task outside the transaction session to keep connection pool free
         try:
             if graph_name != "main_graph":
                 raise ValueError(f"Unsupported graph: {graph_name}")
@@ -90,7 +89,6 @@ class AgentWorker:
             try:
                 # Run the graph
                 if resume_data is not None:
-                    # Update config metadata based on state
                     state_before = await master_graph.aget_state(config)
                     if state_before and state_before.values:
                         config["metadata"]["stage"] = state_before.values.get(
@@ -98,8 +96,7 @@ class AgentWorker:
                         )
                         active_app = state_before.values.get("active_application_id")
                         if active_app:
-                            # Try to add revision_count if we can fetch it (skipping full async DB read for simplicity here,
-                            # but stage at least is updated).
+                            # Add rvn count
                             pass
 
                     await master_graph.ainvoke(Command(resume=resume_data), config)
@@ -113,7 +110,6 @@ class AgentWorker:
                 else:
                     await master_graph.ainvoke(initial_state, config)
 
-                # Check final status
                 state = await master_graph.aget_state(config)
                 if state.next:
                     # Thread paused at interrupt
@@ -128,7 +124,7 @@ class AgentWorker:
                         task_id, status="completed", result=state.values
                     )
             except GraphInterrupt:
-                # Graph hit an interrupt (paused for human interaction)
+                # Graph hit an interrupt HITL
                 state = await master_graph.aget_state(config)
                 await self.update_task_status(
                     task_id, status="paused", result={"next_nodes": list(state.next)}
@@ -152,11 +148,10 @@ class AgentWorker:
             task = await session.get(AgentTask, task_id)
             if task:
                 task.status = status
-                task.updated_at = datetime.now(timezone.utc)
+                task.updated_at = datetime.now(UTC)
                 if status in ("completed", "failed", "paused"):
-                    task.completed_at = datetime.now(timezone.utc)
+                    task.completed_at = datetime.now(UTC)
                 if result is not None:
-                    # Clean up result values for serialization (e.g. UUID to str)
                     task.result = self.serialize_clean(result)
                 if error is not None:
                     task.error = error
@@ -164,19 +159,17 @@ class AgentWorker:
                 task.locked_at = None
 
     def serialize_clean(self, obj):
-        """Recursively convert unserializable types to string."""
         if isinstance(obj, dict):
             return {k: self.serialize_clean(v) for k, v in obj.items()}
         elif isinstance(obj, list):
             return [self.serialize_clean(x) for x in obj]
-        elif isinstance(obj, (uuid.UUID, datetime)):
+        elif isinstance(obj, (uuid.UUID | datetime)):
             return str(obj)
         elif hasattr(obj, "content"):  # LangChain messages
             return {"type": obj.__class__.__name__, "content": str(obj.content)}
         return obj
 
     async def reap_stale_tasks_loop(self):
-        """Background task to reclaim tasks stuck in running status."""
         while self.running:
             try:
                 await self.reap_stale_tasks()
@@ -185,8 +178,7 @@ class AgentWorker:
             await asyncio.sleep(300.0)
 
     async def reap_stale_tasks(self):
-        """Find running tasks with no update in the last 10 minutes and make them pending again."""
-        ten_mins_ago = datetime.now(timezone.utc) - timedelta(minutes=10)
+        ten_mins_ago = datetime.now(UTC) - timedelta(minutes=10)
         async with async_session.begin() as session:
             stmt = (
                 update(AgentTask)

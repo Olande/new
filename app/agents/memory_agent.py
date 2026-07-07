@@ -6,9 +6,9 @@ from app.core.llm import get_llm
 from app.db.base import async_session
 from app.db.models.career_memory import MemoryEntityType
 from app.memory.core import get_current_memory, write_memory_facts
+from app.schemas.agents.memory_agent import ExtractedFactsList
 from app.schemas.career_memory import MemoryFactWrite
 from app.schemas.graph_state import CareerPilotState
-from app.schemas.agents.memory_agent import ExtractedFactsList
 
 
 async def memory_ingest_node(state: CareerPilotState) -> dict:
@@ -17,12 +17,11 @@ async def memory_ingest_node(state: CareerPilotState) -> dict:
     if not messages:
         return {}
 
-    user_id = state["user_id"]
+    user_id = state.get("user_id", "00000000-0000-0000-0000-000000000000")
     import uuid
 
     user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
 
-    # Format history for LLM
     history = "\n".join(
         f"{m.type if hasattr(m, 'type') else str(type(m).__name__)}: {m.content}"
         for m in messages
@@ -54,11 +53,10 @@ async def memory_ingest_node(state: CareerPilotState) -> dict:
             for f in res.facts
         ]
 
-        async with async_session() as session:
-            async with session.begin():
-                await write_memory_facts(
-                    session, user_id=user_uuid, facts=db_facts, commit=False
-                )
+        async with async_session() as session, session.begin():
+            await write_memory_facts(
+                session, user_id=user_uuid, facts=db_facts, commit=False
+            )
 
     except Exception as e:
         logger.exception(f"Failed to ingest memories: {e}")
@@ -68,7 +66,7 @@ async def memory_ingest_node(state: CareerPilotState) -> dict:
 
 async def memory_agent(state: CareerPilotState) -> Command:
     logger.info("Memory agent starting...")
-    user_id = state["user_id"]
+    user_id = state.get("user_id", "00000000-0000-0000-0000-000000000000")
     import uuid
 
     user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id

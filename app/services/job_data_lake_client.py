@@ -6,8 +6,8 @@ import httpx
 from aiolimiter import AsyncLimiter
 from httpx_retries import Retry, RetryTransport
 
-from app.schemas.job import JobSearchCriteria
 from app.config.settings import settings
+from app.schemas.job import JobSearchCriteria
 
 BASE_URL = "https://api.jobdatalake.com/v1"
 

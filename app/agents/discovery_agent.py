@@ -79,7 +79,7 @@ async def discovery_agent(
                     session, query_embedding, last_user_msg, k=10
                 )
 
-            # If we find at least 3 matching active candidates in DB, bypass external API calls
+            # Bypass API Call if at least 3 jobs match
             good_candidates = [c for c in candidates if c.score >= 0.012]
             if len(good_candidates) >= 3:
                 logger.info(
@@ -167,7 +167,6 @@ async def discovery_worker(state: DiscoveryWorkerInput) -> dict[str, Any]:
         return {"discovered_job_ids": uuid_ids}
 
 
-# Assemble the discovery subgraph
 subgraph_builder = StateGraph(CareerPilotState)
 subgraph_builder.add_node("discovery_agent", discovery_agent)
 subgraph_builder.add_node("discovery_worker", discovery_worker)

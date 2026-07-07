@@ -123,7 +123,7 @@ async def resume_agent(
         logger.warning("No candidate available for resume generation.")
         return Command(goto="critic_agent")
 
-    user_id = state["user_id"]
+    user_id = state.get("user_id", "00000000-0000-0000-0000-000000000000")
     user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
     job_id = (
         uuid.UUID(best_candidate["job_id"])
@@ -161,7 +161,6 @@ async def resume_agent(
         )
 
     async with async_session() as session:
-        # Fetch full job description text via Jina Reader
         try:
             logger.info(f"Fetching job description for {job_id}")
             desc_record = await fetch_and_store_job_description(session, str(job_id))
@@ -204,7 +203,6 @@ async def resume_agent(
     )
 
     async with async_session.begin() as session:
-        # Fetch again to update in a write transaction
         app_record = await session.get(Application, app_id)
         if app_record:
             app_record.resume_draft = draft

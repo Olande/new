@@ -8,9 +8,8 @@ from app.core.llm import get_llm
 from app.db.base import async_session
 from app.db.models.application import Application
 from app.db.models.job import Job
-from app.schemas.graph_state import CareerPilotState
 from app.schemas.agents.critic_agent import ResumeEvaluator
-
+from app.schemas.graph_state import CareerPilotState
 
 prompt = """
 Evaluate this draft resume against the target job "{job_title}" at "{company_name}"
@@ -99,7 +98,6 @@ async def critic_agent(state: CareerPilotState) -> Command[Literal["resume_agent
     logger.info(f"Resume critique score: {score:.2f}, revision count: {revision_count}")
 
     async with async_session.begin() as session:
-        # Fetch again to update in transaction
         db_app = await session.get(Application, app_uuid)
         if db_app:
             db_app.critique = critique

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 
 
-class MemoryEntityType(str, enum.Enum):
+class MemoryEntityType(enum.StrEnum):
     project = "project"
     skill = "skill"
     achievement = "achievement"

@@ -1,6 +1,6 @@
 import asyncio
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from itertools import batched
 
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -8,10 +8,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config.settings import settings
 from app.db.models.embedding import Embedding, EntityType
 from app.db.models.job import Job
 from app.schemas.job import JobEmbeddingDocument
-from app.config.settings import settings
 
 EMBEDDING_TEXT_VERSION = 1
 EMBEDDING_BATCH_SIZE = 10
@@ -93,7 +93,7 @@ async def embed_texts_in_batches(
     batch_size: int = EMBEDDING_BATCH_SIZE,
     max_concurrency: int = EMBEDDING_MAX_CONCURRENCY,
 ) -> list[list[float]]:
-    batches = list(batched(texts, batch_size))
+    batches = list(batched(texts, batch_size, strict=False))
     semaphore = asyncio.Semaphore(max_concurrency)
 
     async def embed_one_batch(batch: tuple[str, ...]) -> list[list[float]]:
@@ -146,7 +146,7 @@ async def refresh_stale_embeddings(session: AsyncSession) -> None:
 
     job_ids = [job.id for job in jobs]
     emb_map = await fetch_existing_embeddings(session, job_ids)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     jobs_to_update, texts_to_embed = collect_stale_jobs(jobs, emb_map, now)
     if not jobs_to_update:
@@ -155,6 +155,6 @@ async def refresh_stale_embeddings(session: AsyncSession) -> None:
     client = get_embeddings_client()
     vectors = await embed_texts_in_batches(client, texts_to_embed)
 
-    for (job, emb, fresh_hash, _), vector in zip(jobs_to_update, vectors):
+    for (job, emb, fresh_hash, _), vector in zip(jobs_to_update, vectors, strict=False):
         apply_embedding_update(job, emb, fresh_hash, vector, now, session)
     await session.commit()

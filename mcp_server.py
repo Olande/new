@@ -1,6 +1,7 @@
 import uuid
 
 from mcp.server.fastmcp import FastMCP
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
@@ -32,8 +33,6 @@ from app.schemas.mcp import (
 from app.services.discovery import discover_jobs as run_discovery
 from app.services.job_description_fetcher import fetch_and_store_job_description
 from app.services.task_service import create_task
-
-from pydantic import BaseModel
 
 
 class ResumeWorkflowResponse(BaseModel):
@@ -70,14 +69,13 @@ async def discover_jobs(
     page_cap: int = 10,
 ) -> DiscoverJobsResponse:
     """Discover jobs matching given keywords from the job data lake."""
-    async with async_session() as session:
-        async with session.begin():
-            criteria = JobSearchCriteria(
-                keywords=keywords,
-                location=location,
-                sources=sources or [],
-            )
-            result = await run_discovery(session, criteria, page_cap=page_cap)
+    async with async_session() as session, session.begin():
+        criteria = JobSearchCriteria(
+            keywords=keywords,
+            location=location,
+            sources=sources or [],
+        )
+        result = await run_discovery(session, criteria, page_cap=page_cap)
 
     return DiscoverJobsResponse(
         pages_crawled=result.pages_crawled,
@@ -236,11 +234,10 @@ async def store_memory(
         fact_key=fact_key,
         content={"text": content},
     )
-    async with async_session() as session:
-        async with session.begin():
-            rows = await write_memory_facts(
-                session, user_id=uuid.UUID(user_id), facts=[fact], commit=False
-            )
+    async with async_session() as session, session.begin():
+        rows = await write_memory_facts(
+            session, user_id=uuid.UUID(user_id), facts=[fact], commit=False
+        )
 
     if not rows:
         return ErrorResponse(error="Failed to store memory")
@@ -290,17 +287,16 @@ async def run_workflow(
     job_sources: list[str] | None = None,
 ) -> RunWorkflowResponse:
     """Kick off a CareerPilot agent workflow via a background task."""
-    async with async_session() as session:
-        async with session.begin():
-            task = await create_task(
-                session,
-                user_id=uuid.UUID(user_id),
-                graph_name="main_graph",
-                payload={
-                    "messages": [{"role": "user", "content": query}],
-                    "job_sources": job_sources or ["job_data_lake"],
-                },
-            )
+    async with async_session() as session, session.begin():
+        task = await create_task(
+            session,
+            user_id=uuid.UUID(user_id),
+            graph_name="main_graph",
+            payload={
+                "messages": [{"role": "user", "content": query}],
+                "job_sources": job_sources or ["job_data_lake"],
+            },
+        )
     return RunWorkflowResponse(task_id=str(task.id), thread_id=task.thread_id)
 
 

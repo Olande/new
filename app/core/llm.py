@@ -1,8 +1,11 @@
+from functools import cache
+
 from langchain.chat_models import init_chat_model
 
 from app.config.settings import settings
 
 
+@cache
 def get_llm():
     nvidia_model = init_chat_model(
         "meta/llama-3.1-70b-instruct",

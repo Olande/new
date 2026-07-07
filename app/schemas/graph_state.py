@@ -1,5 +1,5 @@
 import operator
-from typing import Annotated, Any, NotRequired, Required, TypedDict
+from typing import Annotated, Any, NotRequired, TypedDict
 
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
@@ -18,9 +18,9 @@ def merge_dicts(a: dict, b: dict) -> dict:
 
 
 class CareerPilotState(TypedDict):
-    # Required initial fields
-    user_id: Required[str]
-    thread_id: Required[str]
+    # Initial fields
+    user_id: NotRequired[str]
+    thread_id: NotRequired[str]
     messages: Annotated[list[BaseMessage], add_messages]
 
     # Intermediate state fields
@@ -29,7 +29,6 @@ class CareerPilotState(TypedDict):
     career_memory: NotRequired[dict[str, dict[str, Any]]]
     routing_history: NotRequired[Annotated[list[str], operator.add]]
 
-    # store string representations of discovered jobs rather than raw models
     discovered_job_ids: NotRequired[Annotated[list[str], reduce_list_unique]]
 
     # lightweight match candidate reps

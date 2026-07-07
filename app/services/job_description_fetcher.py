@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 from loguru import logger
@@ -7,9 +7,9 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from app.config.settings import settings
 from app.db.models.job_description import JobDescription
 from app.db.models.job_source import JobSource
-from app.config.settings import settings
 
 JINA_READER_BASE = "https://r.jina.ai/"
 FETCH_TIMEOUT_S = 20.0
@@ -62,7 +62,7 @@ async def fetch_and_store_job_description(
         .values(
             job_id=job_id,
             cleaned_text=cleaned_text,
-            fetched_at=datetime.now(timezone.utc),
+            fetched_at=datetime.now(UTC),
         )
         .on_conflict_do_nothing(index_elements=["job_id"])
     )

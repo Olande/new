@@ -1,6 +1,6 @@
 # Memory
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +22,7 @@ async def write_memory_facts(
     deduplicated = {(f.entity_type, f.fact_key): f for f in facts}
     facts = list(deduplicated.values())
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     keys = [(fact.entity_type, fact.fact_key) for fact in facts]
 
     await session.execute(
@@ -84,9 +84,9 @@ async def get_current_memory(
     as_of: datetime | None = None,
 ) -> list[CareerMemory]:
     if as_of is None:
-        as_of = datetime.now(timezone.utc)
+        as_of = datetime.now(UTC)
     elif as_of.tzinfo is None:
-        as_of = as_of.replace(tzinfo=timezone.utc)
+        as_of = as_of.replace(tzinfo=UTC)
 
     result = await session.execute(
         select(CareerMemory)

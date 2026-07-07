@@ -1,16 +1,16 @@
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from app.config.settings import settings
 from app.db.models.job import Job
 from app.db.models.job_source import JobSource
 from app.schemas.job import JobSearchCriteria
 from app.services.job_data_lake_client import JobDataLakeClient
 from app.services.normalization import normalize_job
-from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -181,7 +181,7 @@ async def discover_jobs(
                 logger.warning("failed to normalize job, skipping", exc_info=True)
                 continue
 
-            now_utc = datetime.now(timezone.utc)
+            now_utc = datetime.now(UTC)
             job, created = await upsert_job(db, normalized, now_utc)
             if created:
                 result.jobs_created += 1
