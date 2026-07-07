@@ -72,7 +72,14 @@ class AgentWorker:
                 raise ValueError(f"Unsupported graph: {graph_name}")
 
             master_graph = await get_master_graph()
-            config = {"configurable": {"thread_id": thread_id}}
+            config = {
+                "configurable": {"thread_id": thread_id},
+                "metadata": {
+                    "thread_id": thread_id,
+                    "stage": "initial",
+                },
+                "tags": [f"worker:{self.name}", f"task:{task_id}"],
+            }
 
             # Extract initial state from payload
             initial_state = payload.get("initial_state") or payload
@@ -83,6 +90,18 @@ class AgentWorker:
             try:
                 # Run the graph
                 if resume_data is not None:
+                    # Update config metadata based on state
+                    state_before = await master_graph.aget_state(config)
+                    if state_before and state_before.values:
+                        config["metadata"]["stage"] = state_before.values.get(
+                            "stage", "unknown"
+                        )
+                        active_app = state_before.values.get("active_application_id")
+                        if active_app:
+                            # Try to add revision_count if we can fetch it (skipping full async DB read for simplicity here,
+                            # but stage at least is updated).
+                            pass
+
                     await master_graph.ainvoke(Command(resume=resume_data), config)
 
                     async with async_session.begin() as update_session:
