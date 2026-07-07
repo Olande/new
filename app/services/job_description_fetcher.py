@@ -30,7 +30,6 @@ async def fetch_and_store_job_description(
     session: AsyncSession,
     job_id: str,
 ) -> JobDescription | None:
-
     source = (
         await session.execute(
             select(JobSource)

@@ -12,7 +12,6 @@ async def create_task(
     graph_name: str,
     payload: dict,
 ) -> AgentTask:
-
     task_uuid = uuid.uuid4()
     thread_id = f"user:{user_id}:task:{task_uuid}"
 

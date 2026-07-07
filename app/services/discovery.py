@@ -64,10 +64,16 @@ async def upsert_job(
     }
 
     from sqlalchemy import text
-    stmt = pg_insert(Job).values(**values).on_conflict_do_update(
-        index_elements=['dedup_hash'],
-        set_={"last_seen_at": now_utc, "status": "active"}
-    ).returning(Job, text("xmax = 0 AS is_inserted"))
+
+    stmt = (
+        pg_insert(Job)
+        .values(**values)
+        .on_conflict_do_update(
+            index_elements=["dedup_hash"],
+            set_={"last_seen_at": now_utc, "status": "active"},
+        )
+        .returning(Job, text("xmax = 0 AS is_inserted"))
+    )
 
     res = await db.execute(stmt)
     row = res.one()
@@ -160,7 +166,6 @@ async def discover_jobs(
     *,
     client: JobDataLakeClient | None = None,
 ) -> DiscoveryResult:
-
     page_cap = page_cap or settings.discovery_page_cap
     unconfirmed_limit = unconfirmed_limit or settings.discovery_unconfirmed_limit
     result = DiscoveryResult()

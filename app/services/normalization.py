@@ -39,9 +39,6 @@ def normalize_skills(skills: list[str] | None) -> list[str]:
     return list(seen.values())
 
 
-
-
-
 class RawJobInput(BaseModel):
     title: str = Field(default="")
     locations: list[str] = Field(default_factory=list)
@@ -91,7 +88,6 @@ class RawJobInput(BaseModel):
         except (ValueError, TypeError, OverflowError):
             pass
         return None
-
 
     @classmethod
     def _extract_locations_from_raw(cls, raw: Any) -> list[str]:

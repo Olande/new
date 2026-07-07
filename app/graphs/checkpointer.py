@@ -30,7 +30,6 @@ init_lock = asyncio.Lock()
 
 
 async def get_checkpointer() -> AsyncPostgresSaver:
-
     global checkpointer_instance, pool_open, is_initialized
 
     async with init_lock:

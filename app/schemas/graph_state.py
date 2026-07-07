@@ -5,7 +5,6 @@ from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 
 
-
 def reduce_list_unique(left: list[Any] | None, right: list[Any] | None) -> list[Any]:
     if not left:
         left = []

@@ -35,9 +35,11 @@ from app.services.task_service import create_task
 
 from pydantic import BaseModel
 
+
 class ResumeWorkflowResponse(BaseModel):
     task_id: str
     status: str
+
 
 # MCP Server
 mcp = FastMCP("CareerPilot", log_level="INFO")
@@ -332,7 +334,9 @@ async def resume_workflow(
             if not task:
                 return ErrorResponse(error=f"Task {task_id} not found")
             if task.status != "paused":
-                return ErrorResponse(error=f"Task {task_id} is not paused (status: {task.status})")
+                return ErrorResponse(
+                    error=f"Task {task_id} is not paused (status: {task.status})"
+                )
 
             # Update payload with resume data
             new_payload = task.payload.copy() if task.payload else {}
@@ -347,7 +351,10 @@ async def resume_workflow(
         return ResumeWorkflowResponse(task_id=task_id, status="pending")
     except Exception as e:
         import traceback
-        return ErrorResponse(error=f"Failed to resume workflow: {e}\n{traceback.format_exc()}")
+
+        return ErrorResponse(
+            error=f"Failed to resume workflow: {e}\n{traceback.format_exc()}"
+        )
 
 
 def main() -> None:

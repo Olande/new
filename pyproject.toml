@@ -31,4 +31,3 @@ dependencies = [
 
 [project.scripts]
 careerpilot-worker = "app.workers.agent_worker:main"
-

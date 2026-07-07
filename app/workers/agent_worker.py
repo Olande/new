@@ -172,14 +172,9 @@ class AgentWorker:
             stmt = (
                 update(AgentTask)
                 .where(
-                    AgentTask.status == "running",
-                    AgentTask.locked_at < ten_mins_ago
+                    AgentTask.status == "running", AgentTask.locked_at < ten_mins_ago
                 )
-                .values(
-                    status="pending",
-                    locked_by=None,
-                    locked_at=None
-                )
+                .values(status="pending", locked_by=None, locked_at=None)
                 .returning(AgentTask.id)
             )
             res = await session.execute(stmt)

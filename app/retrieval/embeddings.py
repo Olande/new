@@ -93,7 +93,6 @@ async def embed_texts_in_batches(
     batch_size: int = EMBEDDING_BATCH_SIZE,
     max_concurrency: int = EMBEDDING_MAX_CONCURRENCY,
 ) -> list[list[float]]:
-
     batches = list(batched(texts, batch_size))
     semaphore = asyncio.Semaphore(max_concurrency)
 
