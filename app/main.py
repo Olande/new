@@ -1,6 +1,7 @@
 import os
 from contextlib import asynccontextmanager
 
+import uvicorn
 from fastapi import FastAPI
 from loguru import logger
 from prometheus_client import make_asgi_app
@@ -36,11 +37,9 @@ async def root():
 
 
 if __name__ == "__main__":
-    import uvicorn
-
     uvicorn.run(
         "app.main:app",
-        host=os.getenv("HOST", "0.0.0.0"),
+        host=os.getenv("HOST", "0.0.0.0"),  # nosec B104 - required for Docker/container networking
         port=int(os.getenv("PORT", "8000")),
         reload=False,
     )
