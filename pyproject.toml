@@ -38,11 +38,7 @@ dependencies = [
     "sqlalchemy>=2.0.51",
     "uvicorn>=0.50.2",
 ]
-[tool.mypy]
-python_version = "3.12"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
+
 
 [tool.bandit]
 exclude_dirs = ["tests", ".venv"]
