@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from dateutil.parser import isoparse
-from pydantic import BaseModel, Field, AliasChoices, field_validator
+from pydantic import BaseModel, Field, AliasChoices, field_validator, model_validator
 
 from app.schemas.job import JobCreate, JobSourceCreate
 
@@ -39,24 +39,12 @@ def normalize_skills(skills: list[str] | None) -> list[str]:
     return list(seen.values())
 
 
-def extract_locations(raw: dict) -> list[str]:
-    raw_locations = raw.get("locations")
-    if isinstance(raw_locations, list):
-        return [str(loc) for loc in raw_locations]
-    if raw_locations:
-        return [str(raw_locations)]
 
-    gh_loc = raw.get("location")
-    if isinstance(gh_loc, dict):
-        name = gh_loc.get("name")
-        return [str(name)] if name else []
-    if isinstance(gh_loc, str):
-        return [gh_loc]
-    return []
 
 
 class RawJobInput(BaseModel):
     title: str = Field(default="")
+    locations: list[str] = Field(default_factory=list)
     company_name: str = Field(
         default="", validation_alias=AliasChoices("company_name", "company")
     )
@@ -89,6 +77,7 @@ class RawJobInput(BaseModel):
     first_seen_at: Any = Field(default=None)
 
     @field_validator("posted_at", "first_seen_at", mode="before")
+    @classmethod
     def parse_date_field(cls, value):
         if value is None:
             return None
@@ -104,6 +93,36 @@ class RawJobInput(BaseModel):
         return None
 
 
+    @classmethod
+    def _extract_locations_from_raw(cls, raw: Any) -> list[str]:
+        if not isinstance(raw, dict):
+            return []
+
+        raw_locations = raw.get("locations")
+        if isinstance(raw_locations, list):
+            return [str(loc) for loc in raw_locations]
+        if raw_locations:
+            return [str(raw_locations)]
+
+        gh_loc = raw.get("location")
+        if isinstance(gh_loc, dict):
+            name = gh_loc.get("name")
+            return [str(name)] if name else []
+        if isinstance(gh_loc, str):
+            return [gh_loc]
+        return []
+
+    @model_validator(mode="before")
+    @classmethod
+    def extract_locations_validator(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "locations" not in data:
+                data["locations"] = cls._extract_locations_from_raw(data)
+            else:
+                data["locations"] = cls._extract_locations_from_raw(data)
+        return data
+
+
 def normalize_job(raw: dict, source_name: str = "primary") -> JobCreate:
     parsed_input = RawJobInput.model_validate(raw)
 
@@ -111,7 +130,7 @@ def normalize_job(raw: dict, source_name: str = "primary") -> JobCreate:
 
     first_seen_at = parsed_input.first_seen_at or datetime.now(timezone.utc)
 
-    locations = extract_locations(raw)
+    locations = parsed_input.locations
     dedup_hash = compute_dedup_hash(
         parsed_input.company_name, parsed_input.title, skills
     )

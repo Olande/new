@@ -91,22 +91,7 @@ async def tracker_agent(
         }
     )
 
-    #  fetch the latest application details from the DB after wake up.
-    # The user mightve edited the resume draft directly in the DB.
-    async with async_session() as session:
-        application = await session.get(Application, app_uuid)
-        if not application:
-            logger.error(
-                f"Application {active_application_id} disappeared during interrupt."
-            )
-            return Command(
-                graph=Command.PARENT,
-                goto="supervisor",
-                update={"application_status": {"status": "error"}},
-            )
-        db_approved = application.status == "approved"
-
-    approved = decision.get("approved", False) or db_approved
+    approved = decision.get("approved", False)
 
     logger.info(
         "User {} application for '{}' at '{}'.",

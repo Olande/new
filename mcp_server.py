@@ -33,6 +33,12 @@ from app.services.discovery import discover_jobs as run_discovery
 from app.services.job_description_fetcher import fetch_and_store_job_description
 from app.services.task_service import create_task
 
+from pydantic import BaseModel
+
+class ResumeWorkflowResponse(BaseModel):
+    task_id: str
+    status: str
+
 # MCP Server
 mcp = FastMCP("CareerPilot", log_level="INFO")
 
@@ -311,6 +317,37 @@ async def get_task_status(task_id: str) -> GetTaskStatusResponse | ErrorResponse
             completed_at=str(task.completed_at) if task.completed_at else None,
             result=task.result,
         )
+
+
+@mcp.tool()
+async def resume_workflow(
+    task_id: str,
+    resume_data: dict,
+) -> ResumeWorkflowResponse | ErrorResponse:
+    """Resume a paused workflow by providing the required human-in-the-loop data."""
+    try:
+        task_uuid = uuid.UUID(task_id)
+        async with async_session.begin() as session:
+            task = await session.get(AgentTask, task_uuid)
+            if not task:
+                return ErrorResponse(error=f"Task {task_id} not found")
+            if task.status != "paused":
+                return ErrorResponse(error=f"Task {task_id} is not paused (status: {task.status})")
+
+            # Update payload with resume data
+            new_payload = task.payload.copy() if task.payload else {}
+            new_payload["resume_data"] = resume_data
+            task.payload = new_payload
+
+            # Reset task to pending so the worker picks it up
+            task.status = "pending"
+            task.locked_at = None
+            task.locked_by = None
+
+        return ResumeWorkflowResponse(task_id=task_id, status="pending")
+    except Exception as e:
+        import traceback
+        return ErrorResponse(error=f"Failed to resume workflow: {e}\n{traceback.format_exc()}")
 
 
 def main() -> None:

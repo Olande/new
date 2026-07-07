@@ -12,7 +12,6 @@ from app.core.llm import get_llm
 from app.db.base import async_session
 from app.db.models.application import Application
 from app.db.models.job import Job
-from app.memory.core import get_current_memory
 from app.schemas.graph_state import CareerPilotState
 from app.services.job_description_fetcher import fetch_and_store_job_description
 
@@ -126,7 +125,7 @@ async def resume_agent(
 
     async with async_session() as session:
         # Load career memories from DB
-        memories = await get_current_memory(session, user_id=user_uuid)
+        memories = state.get("career_memory", {})
 
         job = await session.get(Job, job_id)
         if not job:

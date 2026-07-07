@@ -8,7 +8,7 @@ async def normalization_agent(state: CareerPilotState) -> Command:
     logger.info("Normalization agent starting")
     discovered_job_ids = state.get("discovered_job_ids") or []
 
-    unique_ids = list(set(discovered_job_ids))
+    unique_ids = list(dict.fromkeys(discovered_job_ids))
 
     logger.info(
         f"Consolidated {len(unique_ids)} unique discovered job IDs (removed {len(discovered_job_ids) - len(unique_ids)} duplicates)."

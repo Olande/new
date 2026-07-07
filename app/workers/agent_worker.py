@@ -3,12 +3,13 @@ import sys
 import uuid
 from datetime import datetime, timezone, timedelta
 from loguru import logger
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.db.base import async_session
 from app.db.models.agent_task import AgentTask
 from app.graphs.master_graph import get_master_graph
 from langgraph.errors import GraphInterrupt
+from langgraph.types import Command
 
 
 class AgentWorker:
@@ -75,12 +76,23 @@ class AgentWorker:
 
             # Extract initial state from payload
             initial_state = payload.get("initial_state") or payload
+            resume_data = payload.get("resume_data")
 
             logger.info(f"Running master graph for thread: {thread_id}")
 
             try:
                 # Run the graph
-                await master_graph.ainvoke(initial_state, config)
+                if resume_data is not None:
+                    await master_graph.ainvoke(Command(resume=resume_data), config)
+
+                    async with async_session.begin() as update_session:
+                        task_record = await update_session.get(AgentTask, task_id)
+                        if task_record and "resume_data" in task_record.payload:
+                            new_payload = task_record.payload.copy()
+                            del new_payload["resume_data"]
+                            task_record.payload = new_payload
+                else:
+                    await master_graph.ainvoke(initial_state, config)
 
                 # Check final status
                 state = await master_graph.aget_state(config)
@@ -157,19 +169,23 @@ class AgentWorker:
         """Find running tasks with no update in the last 10 minutes and make them pending again."""
         ten_mins_ago = datetime.now(timezone.utc) - timedelta(minutes=10)
         async with async_session.begin() as session:
-            # We can select running tasks that have been locked for more than 10 mins
-            stmt = select(AgentTask).where(
-                AgentTask.status == "running", AgentTask.locked_at < ten_mins_ago
+            stmt = (
+                update(AgentTask)
+                .where(
+                    AgentTask.status == "running",
+                    AgentTask.locked_at < ten_mins_ago
+                )
+                .values(
+                    status="pending",
+                    locked_by=None,
+                    locked_at=None
+                )
+                .returning(AgentTask.id)
             )
             res = await session.execute(stmt)
-            stale_tasks = res.scalars().all()
-            for task in stale_tasks:
-                logger.warning(
-                    f"Reclaiming stale task: {task.id} (locked by {task.locked_by} since {task.locked_at})"
-                )
-                task.status = "pending"
-                task.locked_by = None
-                task.locked_at = None
+            stale_ids = res.scalars().all()
+            for tid in stale_ids:
+                logger.warning(f"Reclaiming stale task: {tid}")
 
 
 def main():

@@ -8,7 +8,6 @@ from app.core.llm import get_llm
 from app.db.base import async_session
 from app.db.models.application import Application
 from app.db.models.job import Job
-from app.memory.core import get_current_memory
 from app.schemas.graph_state import CareerPilotState
 from app.schemas.agents.critic_agent import ResumeEvaluator
 
@@ -50,7 +49,6 @@ async def critic_agent(state: CareerPilotState) -> Command[Literal["resume_agent
     match_scores = state.get("match_scores", [])
     best_candidate = match_scores[0] if match_scores else None
     active_application_id = state.get("active_application_id")
-    user_id = state["user_id"]
 
     if not active_application_id or not best_candidate:
         logger.warning("Missing active_application_id or best_candidate in state")
@@ -65,11 +63,10 @@ async def critic_agent(state: CareerPilotState) -> Command[Literal["resume_agent
         if isinstance(active_application_id, str)
         else active_application_id
     )
-    user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
 
     async with async_session() as session:
         # Load memories from DB
-        memories = await get_current_memory(session, user_id=user_uuid)
+        memories = state.get("career_memory", {})
 
         job_id = best_candidate["job_id"]
         job_uuid = uuid.UUID(job_id) if isinstance(job_id, str) else job_id

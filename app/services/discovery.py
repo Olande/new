@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.db.models.job import Job
 from app.db.models.job_source import JobSource
@@ -42,36 +43,37 @@ async def upsert_job(
     db: AsyncSession, normalized, now_utc: datetime
 ) -> tuple[Job, bool]:
     """Upsert a Job by dedup_hash. Returns (job, created)."""
-    stmt = select(Job).where(Job.dedup_hash == normalized.dedup_hash)
-    job = (await db.execute(stmt)).scalar_one_or_none()
+    values = {
+        "dedup_hash": normalized.dedup_hash,
+        "title": normalized.title,
+        "company_name": normalized.company_name,
+        "domain_name": normalized.domain_name,
+        "role": normalized.role,
+        "job_function": normalized.job_function,
+        "seniority": normalized.seniority,
+        "employment_type": normalized.employment_type,
+        "remote_type": normalized.remote_type,
+        "locations": normalized.locations,
+        "countries": normalized.countries,
+        "required_skills": normalized.required_skills,
+        "employee_count": normalized.employee_count,
+        "funding": normalized.funding,
+        "status": "active",
+        "posted_at": normalized.posted_at,
+        "last_seen_at": now_utc,
+    }
 
-    if job is None:
-        job = Job(
-            dedup_hash=normalized.dedup_hash,
-            title=normalized.title,
-            company_name=normalized.company_name,
-            domain_name=normalized.domain_name,
-            role=normalized.role,
-            job_function=normalized.job_function,
-            seniority=normalized.seniority,
-            employment_type=normalized.employment_type,
-            remote_type=normalized.remote_type,
-            locations=normalized.locations,
-            countries=normalized.countries,
-            required_skills=normalized.required_skills,
-            employee_count=normalized.employee_count,
-            funding=normalized.funding,
-            status="active",
-            posted_at=normalized.posted_at,
-            last_seen_at=now_utc,
-        )
-        db.add(job)
-        await db.flush()
-        return job, True
+    from sqlalchemy import text
+    stmt = pg_insert(Job).values(**values).on_conflict_do_update(
+        index_elements=['dedup_hash'],
+        set_={"last_seen_at": now_utc, "status": "active"}
+    ).returning(Job, text("xmax = 0 AS is_inserted"))
 
-    job.last_seen_at = now_utc
-    job.status = "active"
-    return job, False
+    res = await db.execute(stmt)
+    row = res.one()
+    job, is_inserted = row[0], row[1]
+
+    return job, is_inserted
 
 
 async def upsert_job_source(
