@@ -5,11 +5,12 @@ import app.core.db.models.embedding  # noqa: F401
 
 # Import all models to register them in Base.metadata for tests
 import app.core.db.models.user  # noqa: F401
-import app.features.applications.models  # noqa: F401
-import app.features.jobs.models  # noqa: F401
-import app.features.memory.models  # noqa: F401
 import app.features.workflows.models  # noqa: F401
 from app.core.db.base import Base
+from app.features.applications.models import Application  # noqa
+from app.features.jobs.models import Job, JobDescription, JobSource  # noqa
+from app.features.matching.models import UserJobMatch  # noqa
+from app.features.memory.models import CareerMemory  # noqa: F401
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 

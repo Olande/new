@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, Literal, TypedDict
 
 from langchain_core.messages import BaseMessage, HumanMessage
@@ -11,7 +12,6 @@ from app.core.db.base import async_session
 from app.core.llm import get_llm
 from app.core.llm.embeddings import get_embeddings_client
 from app.features.jobs.models import Job
-from app.features.jobs.normalization_agent import normalization_agent
 from app.features.jobs.retrieval import hybrid_search
 from app.features.jobs.schemas import JobCreate, JobSearchCriteria, JobSourceCreate
 from app.features.jobs.services_discovery import run_discovery
@@ -62,11 +62,12 @@ async def get_criteria_from_messages(messages: list[BaseMessage]) -> dict[str, A
 
 async def discovery_agent(
     state: CareerPilotState,
-) -> Command[Literal["discovery_worker", "normalization_agent"]]:
+) -> Command[Literal["discovery_worker"]]:
     logger.info("Discovery agent starting dispatch")
     messages = state.get("messages") or []
     sources = state.get("job_sources", ["job_data_lake"])
     criteria_dict = await get_criteria_from_messages(messages)
+    limit = criteria_dict.get("limit") or 20
 
     # Search local DB via hybrid_search (RRF) first
     last_user_msg = next(
@@ -83,17 +84,47 @@ async def discovery_agent(
                     session, query_embedding, last_user_msg, k=10
                 )
 
-            # Bypass API Call if at least 1 job matches
-            good_candidates = [c for c in candidates if c.score >= 0.010]
+            # Bypass API Call if at least 1 job matches and is relevant
+            def is_relevant(job: Job, q: str) -> bool:
+                q_words = set(q.lower().replace("/", " ").replace("-", " ").split())
+                q_words -= {
+                    "find",
+                    "me",
+                    "jobs",
+                    "for",
+                    "remote",
+                    "senior",
+                    "role",
+                    "roles",
+                    "position",
+                    "positions",
+                    "get",
+                    "limit",
+                }
+                if not q_words:
+                    return True
+                title_words = set(
+                    job.title.lower().replace("/", " ").replace("-", " ").split()
+                )
+                skills_words = {s.lower() for s in job.required_skills}
+                return bool(q_words & title_words or q_words & skills_words)
+
+            good_candidates = [
+                c
+                for c in candidates
+                if c.score >= 0.005 and is_relevant(c.job, last_user_msg)
+            ]
             if len(good_candidates) >= 1:
                 logger.info(
                     f"Found {len(good_candidates)} matching jobs locally in DB. Bypassing API discovery."
                 )
                 return Command(
-                    goto="normalization_agent",
+                    goto=END,
                     update={
                         "discovered_job_ids": ["__CLEAR__"]
-                        + [str(c.job.id) for c in good_candidates]
+                        + [str(c.job.id) for c in good_candidates[:limit]],
+                        "stage": "memory",
+                        "job_limit": limit,
                     },
                 )
             logger.info(
@@ -112,7 +143,14 @@ async def discovery_agent(
         for source in sources
     ]
     logger.info(f"Fanning out to {len(sends)} discovery workers")
-    return Command(goto=sends, update={"discovered_job_ids": ["__CLEAR__"]})
+    return Command(
+        goto=sends,
+        update={
+            "discovered_job_ids": ["__CLEAR__"],
+            "stage": "memory",
+            "job_limit": limit,
+        },
+    )
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
@@ -145,6 +183,10 @@ def build_job_create(job: Job, fallback_source: str) -> JobCreate:
     return JobCreate(**column_values, source=source_create)
 
 
+# Cap concurrency during parallel fanned-out runs to prevent connection pool exhaustion (Issue #4 in audit)
+concurrency_semaphore = asyncio.Semaphore(5)
+
+
 async def discovery_worker(state: DiscoveryWorkerInput) -> dict[str, Any]:
     source = state["source"]
     criteria_dict = state["criteria_dict"]
@@ -158,7 +200,7 @@ async def discovery_worker(state: DiscoveryWorkerInput) -> dict[str, Any]:
         return {"discovered_job_ids": []}
 
     criteria = JobSearchCriteria(**criteria_dict)
-    async with async_session() as session:
+    async with concurrency_semaphore, async_session() as session:
         try:
             result = await discover_jobs_with_retry(session, criteria, source)
         except Exception:
@@ -167,7 +209,8 @@ async def discovery_worker(state: DiscoveryWorkerInput) -> dict[str, Any]:
 
         uuid_ids = []
         if result.job_ids:
-            uuid_ids = [str(jid) for jid in result.job_ids]
+            limit = criteria.limit or 20
+            uuid_ids = [str(jid) for jid in result.job_ids[:limit]]
 
         logger.info(f"Discovery worker for {source} found {len(uuid_ids)} jobs.")
         return {"discovered_job_ids": uuid_ids}
@@ -176,10 +219,7 @@ async def discovery_worker(state: DiscoveryWorkerInput) -> dict[str, Any]:
 subgraph_builder = StateGraph(CareerPilotState)
 subgraph_builder.add_node("discovery_agent", discovery_agent)
 subgraph_builder.add_node("discovery_worker", discovery_worker)
-subgraph_builder.add_node("normalization_agent", normalization_agent)
 
 subgraph_builder.add_edge(START, "discovery_agent")
-subgraph_builder.add_edge("discovery_worker", "normalization_agent")
-subgraph_builder.add_edge("normalization_agent", END)
 
 discovery_graph = subgraph_builder.compile()

@@ -2,9 +2,9 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    Computed,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -44,11 +44,6 @@ class Job(Base):
     required_skills: Mapped[list[str]] = mapped_column(
         ARRAY(String), server_default="{}", nullable=False
     )
-    skills_text: Mapped[str] = mapped_column(
-        String,
-        Computed("immutable_array_to_string(required_skills, ' ')", persisted=True),
-        nullable=False,
-    )
     employee_count: Mapped[str | None] = mapped_column(String, nullable=True)
     funding: Mapped[str | None] = mapped_column(String, nullable=True)
     company_summary: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -65,6 +60,15 @@ class Job(Base):
 
     sources = relationship("JobSource", back_populates="job")
     description = relationship("JobDescription", back_populates="job", uselist=False)
+
+    __table_args__ = (
+        Index(
+            "idx_jobs_required_skills_gin", "required_skills", postgresql_using="gin"
+        ),
+        Index("idx_jobs_locations_gin", "locations", postgresql_using="gin"),
+        Index("idx_jobs_countries_gin", "countries", postgresql_using="gin"),
+        Index("idx_jobs_seniority_gin", "seniority", postgresql_using="gin"),
+    )
 
 
 class JobSource(Base):

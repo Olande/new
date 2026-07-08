@@ -8,7 +8,7 @@ from psycopg_pool import AsyncConnectionPool
 
 from app.core.config.settings import settings
 from app.core.observability.metrics import agent_latency, run_completions, run_failures
-from app.features.applications.resume_agent import generation_graph
+from app.features.applications.generation_agent import generation_graph
 from app.features.applications.tracker_agent import tracker_graph
 from app.features.jobs.agent import discovery_graph
 from app.features.matching.agent import matching_graph

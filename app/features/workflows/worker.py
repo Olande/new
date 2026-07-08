@@ -195,7 +195,16 @@ class AgentWorker:
                     task.error = error
                 if clear_resume_data and "resume_data" in task.payload:
                     new_payload = task.payload.copy()
-                    new_payload.pop("resume_data", None)
+                    consumed = new_payload.pop("resume_data", None)
+                    # Archive to preserve audit trail (Issue #5 in audit)
+                    if "resume_history" not in new_payload:
+                        new_payload["resume_history"] = []
+                    new_payload["resume_history"].append(
+                        {
+                            "consumed_at": datetime.now(UTC).isoformat(),
+                            "data": consumed,
+                        }
+                    )
                     task.payload = new_payload
                 task.locked_by = None
                 task.locked_at = None

@@ -2,8 +2,8 @@ import asyncio
 
 from sqlalchemy import select
 
-from app.db.base import async_session
-from app.db.models.job import Job
+from app.core.db.base import async_session
+from app.features.jobs.models import Job
 
 
 async def query():

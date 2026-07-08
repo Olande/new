@@ -70,15 +70,22 @@ async def retrieval_target(inputs: dict) -> dict:
 
 
 async def generation_target(inputs: dict) -> dict:
-    from app.features.applications.resume_agent import generate_resume_draft
+    from app.features.applications.generation_agent import (
+        generate_document,
+        resume_prompt,
+    )
 
-    draft = await generate_resume_draft(
-        career_memory=inputs.get("career_memory", []),
-        job_title=inputs.get("job_title", ""),
-        company_name=inputs.get("company_name", ""),
-        required_skills=inputs.get("required_skills", []),
-        job_description=inputs.get("job_description", ""),
-        critique=inputs.get("critique"),
+    # For eval, we only evaluate the resume draft
+    draft = await generate_document(
+        resume_prompt,
+        {
+            "career_memory": str(inputs.get("career_memory", [])),
+            "job_title": inputs.get("job_title", ""),
+            "company_name": inputs.get("company_name", ""),
+            "required_skills": inputs.get("required_skills", []),
+            "job_description": inputs.get("job_description", ""),
+            "critique": inputs.get("critique"),
+        },
     )
     return {"resume_draft": draft}
 

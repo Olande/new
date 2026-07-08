@@ -27,6 +27,10 @@ class JobSearchCriteria(BaseModel):
         default=None,
         description="Seniority levels (e.g., 'Senior', 'Staff'). CRITICAL: ONLY include levels explicitly requested by the user. NEVER hallucinate or enumerate possible levels.",
     )
+    limit: int | None = Field(
+        default=None,
+        description="The specific number of jobs/positions requested by the user, if explicitly stated (e.g. 'find 4 jobs' -> 4).",
+    )
 
 
 class JobSourceCreate(BaseModel):

@@ -38,9 +38,6 @@ class CareerPilotState(TypedDict):
 
     discovered_job_ids: NotRequired[Annotated[list[str], reduce_list_unique]]
 
-    # lightweight match candidate reps (no reducer = overwrite on update)
-    match_scores: NotRequired[list[dict[str, Any]]]
-
     #  pointer to the active App record in Postgres
     active_application_id: NotRequired[Annotated[str | None, reduce_optional_str]]
     application_status: NotRequired[dict[str, str | bool | None]]
@@ -48,3 +45,4 @@ class CareerPilotState(TypedDict):
     # Worker-specific fields to align worker payloads with the parent state typing
     source: NotRequired[str]
     criteria_dict: NotRequired[dict[str, Any]]
+    job_limit: NotRequired[int]

@@ -49,14 +49,12 @@ async def evaluate_resume(
     return res.resume_critique, res.resume_score
 
 
-async def critic_agent(state: CareerPilotState) -> Command[Literal["resume_agent"]]:
+async def critic_agent(state: CareerPilotState) -> Command[Literal["generation_agent"]]:
     logger.info("Critic agent starting resume evaluation")
-    match_scores = state.get("match_scores", [])
-    best_candidate = match_scores[0] if match_scores else None
     active_application_id = state.get("active_application_id")
 
-    if not active_application_id or not best_candidate:
-        logger.warning("Missing active_application_id or best_candidate in state")
+    if not active_application_id:
+        logger.warning("Missing active_application_id in state")
         return Command(
             graph=Command.PARENT, goto="supervisor", update={"stage": "tracker"}
         )
@@ -70,18 +68,6 @@ async def critic_agent(state: CareerPilotState) -> Command[Literal["resume_agent
     )
 
     async with async_session() as session:
-        # Load memories from DB
-        memories = state.get("career_memory", {})
-
-        job_id = best_candidate["job_id"]
-        job_uuid = uuid.UUID(job_id) if isinstance(job_id, str) else job_id
-        job = await session.get(Job, job_uuid)
-        if not job:
-            logger.error(f"Job {job_id} not found")
-            return Command(
-                graph=Command.PARENT, goto="supervisor", update={"stage": "tracker"}
-            )
-
         # Load application record
         app_record = await session.get(Application, app_uuid)
         if not app_record:
@@ -89,6 +75,17 @@ async def critic_agent(state: CareerPilotState) -> Command[Literal["resume_agent
             return Command(
                 graph=Command.PARENT, goto="supervisor", update={"stage": "tracker"}
             )
+
+        job_id = app_record.job_id
+        job = await session.get(Job, job_id)
+        if not job:
+            logger.error(f"Job {job_id} not found")
+            return Command(
+                graph=Command.PARENT, goto="supervisor", update={"stage": "tracker"}
+            )
+
+        # Load memories from DB
+        memories = state.get("career_memory", {})
         resume_draft = app_record.resume_draft or ""
         revision_count = app_record.revision_count or 0
 
@@ -116,6 +113,6 @@ async def critic_agent(state: CareerPilotState) -> Command[Literal["resume_agent
             },
         )
     logger.info(
-        "Resume score below threshold. Routing back to resume_agent for revision."
+        "Resume score below threshold. Routing back to generation_agent for revision."
     )
-    return Command(goto="resume_agent")
+    return Command(goto="generation_agent")

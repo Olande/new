@@ -12,9 +12,9 @@ async def hybrid_search(
     query_text: str,
     k: int = 10,
     candidate_pool: int = 40,
-    semantic_weight: float = 0.5,
-    lexical_weight: float = 0.4,
-    trigram_weight: float = 0.1,
+    semantic_weight: float = 0.7,
+    lexical_weight: float = 0.3,
+    trigram_weight: float = 0.0,
 ) -> list[JobCandidate]:
     """
     Perform multi-stage hybrid search using weighted Reciprocal Rank Fusion (RRF).
