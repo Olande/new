@@ -4,10 +4,10 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config.settings import settings
-from app.features.jobs.repository import close_stale_jobs, upsert_job, upsert_job_source
-from app.features.jobs.schemas import JobSearchCriteria
-from app.features.jobs.services_client import JobDataLakeClient
-from app.features.jobs.services_normalization import normalize_job
+from app.core.jdl.client import JobDataLakeClient
+from app.core.jdl.normalization import normalize_job
+from app.core.jdl.repository import close_stale_jobs, upsert_job, upsert_job_source
+from app.core.jdl.schemas import JobSearchCriteria
 
 logger = logging.getLogger(__name__)
 

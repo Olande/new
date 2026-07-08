@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.features.jobs.models import Job, JobDescription, JobSource
+from app.core.db.models.job import Job, JobDescription, JobSource
 
 
 async def upsert_job(

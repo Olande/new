@@ -52,5 +52,5 @@ class Application(Base):
 
 
 # Import related models to register them in metadata and resolve relationship names
+from app.core.db.models.job import Job  # noqa: F401, E402
 from app.core.db.models.user import User  # noqa: F401, E402
-from app.features.jobs.models import Job  # noqa: F401, E402

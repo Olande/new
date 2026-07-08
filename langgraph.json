@@ -1,7 +1,0 @@
-{
-  "dependencies": ["."],
-  "graphs": {
-    "careerpilot": "./app/features/workflows/master_graph.py:graph"
-  },
-  "env": ".env"
-}

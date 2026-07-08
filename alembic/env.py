@@ -4,18 +4,16 @@ from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
 
+import app.core.db.models.agent_task  # noqa: F401
+import app.core.db.models.application  # noqa: F401
 import app.core.db.models.embedding  # noqa: F401
+import app.core.db.models.job  # noqa: F401
+import app.core.db.models.matching  # noqa: F401
+import app.core.db.models.memory  # noqa: F401
 import app.core.db.models.user  # noqa: F401
-import app.features.workflows.models  # noqa: F401
-
-# We now must import each feature's models so Alembic can detect them
 from alembic import context
 from app.core.config.settings import settings
 from app.core.db.base import Base
-from app.features.applications.models import Application  # noqa
-from app.features.jobs.models import Job, JobDescription, JobSource  # noqa
-from app.features.matching.models import UserJobMatch  # noqa
-from app.features.memory.models import CareerMemory  # noqa: F401
 
 config = context.config
 

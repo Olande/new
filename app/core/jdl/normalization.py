@@ -6,7 +6,7 @@ from typing import Any
 from dateutil.parser import isoparse
 from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
-from app.features.jobs.schemas import JobCreate, JobSourceCreate
+from app.core.jdl.schemas import JobCreate, JobSourceCreate
 
 
 def collapse_whitespace(s: str) -> str:

@@ -7,7 +7,7 @@ from aiolimiter import AsyncLimiter
 from httpx_retries import Retry, RetryTransport
 
 from app.core.config.settings import settings
-from app.features.jobs.schemas import JobSearchCriteria
+from app.core.jdl.schemas import JobSearchCriteria
 
 BASE_URL = "https://api.jobdatalake.com/v1"
 
@@ -46,7 +46,7 @@ class JobDataLakeClient:
     def __post_init__(self) -> None:
         if not self.api_key:
             raise ValueError(
-                "API key required.  Set Job_DATA_LAKE_API_KEY environment "
+                "API key required. Set JOB_DATA_LAKE_API_KEY environment "
                 "variable to use the API."
             )
 

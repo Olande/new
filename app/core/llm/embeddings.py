@@ -10,8 +10,8 @@ from sqlalchemy.orm import selectinload
 
 from app.core.config.settings import settings
 from app.core.db.models.embedding import Embedding, EntityType
-from app.features.jobs.models import Job
-from app.features.jobs.schemas import JobEmbeddingDocument
+from app.core.db.models.job import Job
+from app.core.jdl.schemas import JobEmbeddingDocument
 
 EMBEDDING_TEXT_VERSION = 1
 EMBEDDING_BATCH_SIZE = 10
