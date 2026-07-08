@@ -2,7 +2,7 @@ from functools import cache
 
 from langchain.chat_models import init_chat_model
 
-from app.config.settings import settings
+from app.core.config.settings import settings
 
 
 @cache

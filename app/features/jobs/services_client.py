@@ -6,16 +6,26 @@ import httpx
 from aiolimiter import AsyncLimiter
 from httpx_retries import Retry, RetryTransport
 
-from app.config.settings import settings
-from app.schemas.job import JobSearchCriteria
+from app.core.config.settings import settings
+from app.features.jobs.schemas import JobSearchCriteria
 
 BASE_URL = "https://api.jobdatalake.com/v1"
 
 
 def build_search_params(criteria: JobSearchCriteria) -> dict[str, Any]:
     params: dict[str, Any] = {}
+
+    q_parts = []
+    if criteria.seniority:
+        q_parts.extend(criteria.seniority)
+    if criteria.job_function:
+        q_parts.append(criteria.job_function)
     if criteria.skills:
-        params["q"] = " ".join(criteria.skills)
+        q_parts.extend(criteria.skills)
+
+    if q_parts:
+        params["q"] = " ".join(q_parts)
+
     if criteria.location:
         params["location"] = criteria.location
     if criteria.remote_type:

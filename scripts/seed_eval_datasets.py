@@ -3,7 +3,7 @@ import uuid
 from langsmith import Client
 from loguru import logger
 
-from app.config.settings import settings
+from app.core.config.settings import settings
 
 GOLDEN_JOB_IDS = {
     "backend": uuid.UUID("11111111-1111-1111-1111-111111111111"),
@@ -81,7 +81,7 @@ def seed_golden_jobs() -> dict:
 
             await session.commit()
 
-            from app.retrieval.embeddings import refresh_stale_embeddings
+            from app.core.llm.embeddings import refresh_stale_embeddings
 
             logger.info("Generating embeddings for active/golden jobs...")
             await refresh_stale_embeddings(session)

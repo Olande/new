@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 from loguru import logger
 
-from app.config.settings import settings
+from app.core.config.settings import settings
 
 _ = load_dotenv()
 

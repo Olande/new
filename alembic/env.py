@@ -4,10 +4,10 @@ from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
 
+# We now must import each feature's models so Alembic can detect them
 from alembic import context
-from app.config.settings import settings
-from app.db import models  # noqa: F401
-from app.db.base import Base
+from app.core.config.settings import settings
+from app.core.db.base import Base
 
 config = context.config
 

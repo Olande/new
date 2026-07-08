@@ -1,15 +1,11 @@
-from datetime import UTC, datetime
-
 import httpx
 from loguru import logger
-from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from app.config.settings import settings
-from app.db.models.job_description import JobDescription
-from app.db.models.job_source import JobSource
+from app.core.config.settings import settings
+from app.features.jobs.models import JobDescription
+from app.features.jobs.repository import get_job_source, upsert_job_description
 
 JINA_READER_BASE = "https://r.jina.ai/"
 FETCH_TIMEOUT_S = 20.0
@@ -30,14 +26,7 @@ async def fetch_and_store_job_description(
     session: AsyncSession,
     job_id: str,
 ) -> JobDescription | None:
-    source = (
-        await session.execute(
-            select(JobSource)
-            .where(JobSource.job_id == job_id)
-            .order_by(JobSource.last_checked_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
+    source = await get_job_source(session, job_id)
 
     if source is None or not source.source_url:
         logger.warning(
@@ -57,17 +46,4 @@ async def fetch_and_store_job_description(
         logger.info(f"No extractable text for job_id={job_id}")
         return None
 
-    stmt = (
-        pg_insert(JobDescription)
-        .values(
-            job_id=job_id,
-            cleaned_text=cleaned_text,
-            fetched_at=datetime.now(UTC),
-        )
-        .on_conflict_do_nothing(index_elements=["job_id"])
-    )
-    await session.execute(stmt)
-    await session.commit()
-
-    jd = await session.get(JobDescription, job_id)
-    return jd
+    return await upsert_job_description(session, job_id, cleaned_text)

@@ -1,6 +1,6 @@
 import pytest
 
-from app.agents.tracker_agent import tracker_agent
+from app.features.applications.tracker_agent import tracker_agent
 
 
 @pytest.mark.asyncio

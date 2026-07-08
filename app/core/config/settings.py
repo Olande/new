@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     job_data_lake_api_key: str | None = None
     jina_api_key: str | None = None
     tavily_api_key: str | None = None
-    discovery_page_cap: int | None = 10
-    discovery_per_page: int = 10
+    discovery_page_cap: int | None = 5
+    discovery_per_page: int = 5
     discovery_unconfirmed_limit: int = 3
 
     langsmith_tracing: bool = False
