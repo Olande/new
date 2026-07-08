@@ -7,13 +7,6 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.pool import NullPool
 
-
-
-
-
-
-
-
 from app.core.config.settings import settings
 
 engine = create_async_engine(settings.database_url, echo=False, poolclass=NullPool)
@@ -27,7 +20,6 @@ class Base(DeclarativeBase):
 async def get_db():
     async with async_session() as session:
         yield session
-
 
 
 import app.core.db.models.embedding  # noqa: F401

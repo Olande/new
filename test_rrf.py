@@ -1,9 +1,11 @@
 import asyncio
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+
 from app.core.config.settings import settings
-import uuid
+
 
 async def main():
     engine = create_async_engine(settings.database_url, echo=False)
@@ -20,16 +22,20 @@ async def main():
             );
         """)
         try:
-            result = await session.execute(query, {
-                "query_embedding": dummy_vector,
-                "query_text": "software engineer",
-                "k": 10
-            })
+            result = await session.execute(
+                query,
+                {
+                    "query_embedding": dummy_vector,
+                    "query_text": "software engineer",
+                    "k": 10,
+                },
+            )
             print("Query executed successfully")
             print(result.all())
         except Exception as e:
             print("Error:", e)
 
     await engine.dispose()
+
 
 asyncio.run(main())
