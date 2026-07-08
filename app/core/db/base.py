@@ -7,13 +7,13 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.pool import NullPool
 
-import app.core.db.models.embedding  # noqa: F401
-import app.core.db.models.user  # noqa: F401
-import app.features.applications.models  # noqa: F401
-import app.features.jobs.models  # noqa: F401
-import app.features.matching.models  # noqa: F401
-import app.features.memory.models  # noqa: F401
-import app.features.workflows.models  # noqa: F401
+
+
+
+
+
+
+
 from app.core.config.settings import settings
 
 engine = create_async_engine(settings.database_url, echo=False, poolclass=NullPool)
@@ -28,5 +28,14 @@ async def get_db():
     async with async_session() as session:
         yield session
 
+
+
+import app.core.db.models.embedding  # noqa: F401
+import app.core.db.models.user  # noqa: F401
+import app.features.applications.models  # noqa: F401
+import app.features.jobs.models  # noqa: F401
+import app.features.matching.models  # noqa: F401
+import app.features.memory.models  # noqa: F401
+import app.features.workflows.models  # noqa: F401
 
 configure_mappers()
