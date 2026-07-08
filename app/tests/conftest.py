@@ -1,12 +1,12 @@
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app.core.db.base import Base
 import app.core.db.models.embedding  # noqa: F401
 
 # Import all models to register them in Base.metadata for tests
 import app.core.db.models.user  # noqa: F401
 import app.features.workflows.models  # noqa: F401
-from app.core.db.base import Base
 from app.features.applications.models import Application  # noqa
 from app.features.jobs.models import Job, JobDescription, JobSource  # noqa
 from app.features.matching.models import UserJobMatch  # noqa
