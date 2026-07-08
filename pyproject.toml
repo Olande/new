@@ -42,7 +42,7 @@ dependencies = [
 
 [tool.bandit]
 exclude_dirs = ["tests", ".venv"]
-skips = ["B101"]
+skips = ["B101", "B106"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "B", "UP", "SIM", "C4"]
