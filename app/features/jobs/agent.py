@@ -200,12 +200,13 @@ async def discovery_worker(state: DiscoveryWorkerInput) -> dict[str, Any]:
         return {"discovered_job_ids": []}
 
     criteria = JobSearchCriteria(**criteria_dict)
-    async with concurrency_semaphore, async_session() as session:
-        try:
-            result = await discover_jobs_with_retry(session, criteria, source)
-        except Exception:
-            logger.exception(f"Discovery failed for source {source} after retries")
-            return {"discovered_job_ids": []}
+    async with concurrency_semaphore:
+        async with async_session() as session:
+            try:
+                result = await discover_jobs_with_retry(session, criteria, source)
+            except Exception:
+                logger.exception(f"Discovery failed for source {source} after retries")
+                return {"discovered_job_ids": []}
 
         uuid_ids = []
         if result.job_ids:
