@@ -25,6 +25,7 @@ import app.features.jobs.models  # noqa: F401
 import app.features.matching.models  # noqa: F401
 import app.features.memory.models  # noqa: F401
 import app.features.workflows.models  # noqa: F401
+
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
