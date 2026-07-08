@@ -16,9 +16,8 @@ def seed_golden_jobs() -> dict:
     import asyncio
     import hashlib
 
-    from app.db.base import async_session
-    from app.db.models.job import Job
-    from app.db.models.job_description import JobDescription
+    from app.core.db.base import async_session
+    from app.features.jobs.models import Job, JobDescription
 
     def _dedup_hash(job_id: uuid.UUID) -> str:
         return hashlib.sha256(str(job_id).encode()).hexdigest()

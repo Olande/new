@@ -5,10 +5,9 @@ from loguru import logger
 from app.core.db.base import async_session
 from app.core.llm import get_llm
 from app.features.memory.models import MemoryEntityType
-from app.features.memory.schemas import MemoryFactWrite
+from app.features.memory.schemas import ExtractedFactsList, MemoryFactWrite
 from app.features.memory.services import get_current_memory, write_memory_facts
 from app.features.workflows.graph_state import CareerPilotState
-from app.schemas.agents.memory_agent import ExtractedFactsList
 
 
 async def memory_ingest_node(state: CareerPilotState) -> dict:

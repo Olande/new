@@ -1,4 +1,3 @@
-import operator
 from typing import Annotated, Any, NotRequired, TypedDict
 
 from langchain_core.messages import BaseMessage
@@ -34,7 +33,7 @@ class CareerPilotState(TypedDict):
     job_sources: NotRequired[list[str]]
     stage: NotRequired[Annotated[str | None, reduce_optional_str]]
     career_memory: NotRequired[dict[str, dict[str, Any]]]
-    routing_history: NotRequired[Annotated[list[str], operator.add]]
+    routing_history: NotRequired[Annotated[list[str], reduce_list_unique]]
 
     discovered_job_ids: NotRequired[Annotated[list[str], reduce_list_unique]]
 

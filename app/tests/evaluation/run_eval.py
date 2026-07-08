@@ -7,7 +7,7 @@ from langsmith import Client, aevaluate
 from loguru import logger
 
 from app.core.config.settings import settings
-from app.evaluation.evaluators import (
+from app.tests.evaluation.evaluators import (
     hallucination_evaluator,
     mrr,
     ndcg_at_10,

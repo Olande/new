@@ -9,7 +9,7 @@ from app.core.llm import get_llm
 from app.features.applications.models import Application
 from app.features.jobs.models import Job
 from app.features.workflows.graph_state import CareerPilotState
-from app.schemas.agents.critic_agent import ResumeEvaluator
+from app.features.workflows.schemas import ResumeEvaluator
 
 prompt = """
 Evaluate this draft resume against the target job "{job_title}" at "{company_name}"

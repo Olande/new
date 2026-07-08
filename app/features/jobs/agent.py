@@ -67,7 +67,7 @@ async def discovery_agent(
     messages = state.get("messages") or []
     sources = state.get("job_sources", ["job_data_lake"])
     criteria_dict = await get_criteria_from_messages(messages)
-    limit = criteria_dict.get("limit") or 20
+    limit = criteria_dict.get("limit")
 
     # Search local DB via hybrid_search (RRF) first
     last_user_msg = next(
@@ -118,11 +118,12 @@ async def discovery_agent(
                 logger.info(
                     f"Found {len(good_candidates)} matching jobs locally in DB. Bypassing API discovery."
                 )
+                slice_limit = limit if limit is not None else len(good_candidates)
                 return Command(
                     goto=END,
                     update={
                         "discovered_job_ids": ["__CLEAR__"]
-                        + [str(c.job.id) for c in good_candidates[:limit]],
+                        + [str(c.job.id) for c in good_candidates[:slice_limit]],
                         "stage": "memory",
                         "job_limit": limit,
                     },
@@ -210,8 +211,9 @@ async def discovery_worker(state: DiscoveryWorkerInput) -> dict[str, Any]:
 
         uuid_ids = []
         if result.job_ids:
-            limit = criteria.limit or 20
-            uuid_ids = [str(jid) for jid in result.job_ids[:limit]]
+            limit = criteria.limit
+            slice_limit = limit if limit is not None else len(result.job_ids)
+            uuid_ids = [str(jid) for jid in result.job_ids[:slice_limit]]
 
         logger.info(f"Discovery worker for {source} found {len(uuid_ids)} jobs.")
         return {"discovered_job_ids": uuid_ids}

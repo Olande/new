@@ -52,7 +52,7 @@ async def responder_agent(state: CareerPilotState) -> dict:
     # Fetch job list from DB if any
     jobs_info = ""
     match_scores_count = 0
-    job_limit = state.get("job_limit") or 20
+    job_limit = state.get("job_limit")
     if discovered_job_ids:
         job_uuids = [
             uuid.UUID(jid) if isinstance(jid, str) else jid
@@ -68,8 +68,9 @@ async def responder_agent(state: CareerPilotState) -> dict:
                 )
                 .where(Job.id.in_(job_uuids))
                 .order_by(UserJobMatch.match_score.desc().nulls_last())
-                .limit(job_limit)
             )
+            if job_limit is not None:
+                stmt = stmt.limit(job_limit)
             result = await session.execute(stmt)
             jobs = result.all()
             jobs_info_list = []
@@ -83,7 +84,7 @@ async def responder_agent(state: CareerPilotState) -> dict:
                     jobs_info_list.append(f"- **{j_title}** at {j_company}")
 
             jobs_info = "\n".join(jobs_info_list)
-            if len(discovered_job_ids) > job_limit:
+            if job_limit is not None and len(discovered_job_ids) > job_limit:
                 jobs_info += f"\n... and {len(discovered_job_ids) - job_limit} more."
 
     # Fetch resume/cover letter from DB if available
@@ -132,9 +133,13 @@ async def responder_agent(state: CareerPilotState) -> dict:
         if cover_letter_text:
             final_content += f"\n\n### Generated Cover Letter:\n```markdown\n{cover_letter_text}\n```"
 
-        return {"messages": [AIMessage(content=final_content)]}
+        return {
+            "messages": [AIMessage(content=final_content)],
+            "stage": "completed",
+        }
     except Exception:
         logger.exception("Responder failed.")
         return {
-            "messages": [AIMessage(content="I've completed the requested actions.")]
+            "messages": [AIMessage(content="I've completed the requested actions.")],
+            "stage": "completed",
         }

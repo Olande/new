@@ -16,8 +16,6 @@ def build_search_params(criteria: JobSearchCriteria) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
     q_parts = []
-    if criteria.seniority:
-        q_parts.extend(criteria.seniority)
     if criteria.job_function:
         q_parts.append(criteria.job_function)
     if criteria.skills:

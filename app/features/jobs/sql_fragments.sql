@@ -2,10 +2,10 @@ CREATE OR REPLACE FUNCTION hybrid_search_jobs(
     query_embedding vector,
     query_text text,
     k integer,
-    candidate_pool integer DEFAULT 40,
-    semantic_weight double precision DEFAULT 0.7,
-    lexical_weight double precision DEFAULT 0.3,
-    trigram_weight double precision DEFAULT 0.0
+    candidate_pool integer DEFAULT 200,
+    semantic_weight double precision DEFAULT 0.5,
+    lexical_weight double precision DEFAULT 0.4,
+    trigram_weight double precision DEFAULT 0.1
 )
     RETURNS TABLE
             (
@@ -22,6 +22,7 @@ WITH vector_search AS (SELECT e.entity_id                                       
                                 JOIN jobs j ON e.entity_id = j.id
                        WHERE e.entity_type = 'job'
                          AND j.status = 'active'
+                         AND e.vector <=> query_embedding < 0.55
                        LIMIT candidate_pool),
      lexical_search AS (SELECT j.id  AS job_id,
                                ROW_NUMBER() OVER (

@@ -18,14 +18,6 @@ engine = create_async_engine(
     pool_timeout=30,
 )
 
-import app.core.db.models.embedding  # noqa: F401
-import app.core.db.models.user  # noqa: F401
-import app.features.applications.models  # noqa: F401
-import app.features.jobs.models  # noqa: F401
-import app.features.matching.models  # noqa: F401
-import app.features.memory.models  # noqa: F401
-import app.features.workflows.models  # noqa: F401
-
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
