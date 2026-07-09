@@ -7,15 +7,15 @@ class Settings(BaseSettings):
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
     env: str = "development"
-    database_url: str = "postgresql+asyncpg://localhost:5432/project"
+    database_url: str | None = None
     google_api_key: str | None = None
     deepseek_api_key: str | None = None
     nvidia_api_key: str | None = None
     job_data_lake_api_key: str | None = None
     jina_api_key: str | None = None
     tavily_api_key: str | None = None
-    discovery_page_cap: int | None = 5
-    discovery_per_page: int = 5
+    discovery_page_cap: int | None = 1
+    discovery_per_page: int = 1
     discovery_unconfirmed_limit: int = 3
 
     langsmith_tracing: bool = False

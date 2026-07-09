@@ -8,6 +8,8 @@ dependencies = [
     "asyncpg>=0.31.0",
     "black>=26.5.1",
     "fastapi>=0.139.0",
+    "google>=3.0.0",
+    "google-api-core>=2.31.0",
     "httpx>=0.28.1",
     "httpx-retries>=0.5.0",
     "ipykernel>=7.3.0",
@@ -36,6 +38,7 @@ dependencies = [
     "ruff>=0.15.20",
     "scikit-learn>=1.9.0",
     "sqlalchemy>=2.0.51",
+    "tenacity>=9.1.4",
     "uvicorn>=0.50.2",
 ]
 

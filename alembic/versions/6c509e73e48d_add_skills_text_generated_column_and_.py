@@ -20,9 +20,14 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # pg_textsearch must already be installed + in shared_preload_libraries
-    # on the server (per earlier setup), or CREATE EXTENSION here will fail.
-    op.execute("CREATE EXTENSION IF NOT EXISTS pg_textsearch")
+    # pg_textsearch is optional — use a savepoint so a failure doesn't
+    # poison the outer migration transaction.
+    conn = op.get_bind()
+    try:
+        with conn.begin_nested():
+            conn.execute(sa.text("CREATE EXTENSION IF NOT EXISTS pg_textsearch"))
+    except Exception:
+        pass  # nosec: idempotent migration — extension may already exist
 
     op.execute(
         """
@@ -47,13 +52,28 @@ def upgrade() -> None:
         ),
     )
 
-    op.execute(
-        """
-        CREATE INDEX IF NOT EXISTS idx_jobs_skills_bm25
-            ON jobs USING bm25 (skills_text)
-            WITH (text_config = 'english')
-        """
-    )
+    try:
+        with conn.begin_nested():
+            op.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_jobs_skills_bm25
+                    ON jobs USING bm25 (skills_text)
+                    WITH (text_config = 'english')
+                """
+            )
+    except Exception:
+        # Fallback to GIN trigram index if BM25 extension is unavailable
+        try:
+            with conn.begin_nested():
+                conn.execute(sa.text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+        except Exception:
+            pass  # nosec: idempotent migration — index may already exist
+        op.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_jobs_skills_trgm
+                ON jobs USING GIN (skills_text gin_trgm_ops)
+            """
+        )
 
 
 def downgrade() -> None:

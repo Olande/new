@@ -46,6 +46,7 @@ async def run_discovery(
 ) -> DiscoveryResult:
     result = DiscoveryResult()
     seen_source_job_ids: set[str] = set()
+    seen_companies: set[str] = set()
 
     async def process_stream(jdl_client) -> None:
         async for raw_job in jdl_client.search_all_results(
@@ -67,6 +68,7 @@ async def run_discovery(
             await upsert_job_source(db, job, normalized, now_utc)
             result.job_ids.append(str(job.id))
             seen_source_job_ids.add(normalized.source.source_job_id)
+            seen_companies.add(normalized.company_name)
 
     if client is not None:
         await process_stream(client)
@@ -89,5 +91,30 @@ async def run_discovery(
         await refresh_stale_embeddings(db)
     except Exception as e:
         logger.error(f"Failed to refresh stale embeddings: {e}", exc_info=True)
+        await db.rollback()
+
+    try:
+        from app.core.jdl.company_summary import populate_for_companies
+
+        if seen_companies:
+            logger.info(
+                "Populating company summaries for %d companies...",
+                len(seen_companies),
+            )
+            await populate_for_companies(db, seen_companies)
+    except Exception as e:
+        logger.error(f"Failed to populate company summaries: {e}", exc_info=True)
+
+    try:
+        from app.core.jdl.description import populate_job_descriptions
+
+        if result.job_ids:
+            logger.info(
+                "Populating job descriptions for %d jobs...",
+                len(result.job_ids),
+            )
+            await populate_job_descriptions(db, job_ids=result.job_ids, batch_size=5)
+    except Exception as e:
+        logger.error(f"Failed to populate job descriptions: {e}", exc_info=True)
 
     return result

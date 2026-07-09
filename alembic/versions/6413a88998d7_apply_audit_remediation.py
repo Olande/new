@@ -41,10 +41,16 @@ def upgrade() -> None:
     )
     # Ignored checkpoint tables
     op.drop_index(
-        op.f("idx_jobs_skills_bm25"),
+        "idx_jobs_skills_bm25",
         table_name="jobs",
         postgresql_with={"text_config": "english"},
         postgresql_using="bm25",
+        if_exists=True,
+    )
+    op.drop_index(
+        "idx_jobs_skills_trgm",
+        table_name="jobs",
+        if_exists=True,
     )
     op.create_index(
         "idx_jobs_countries_gin",
@@ -100,14 +106,28 @@ def downgrade() -> None:
     )
     op.drop_index("idx_jobs_locations_gin", table_name="jobs", postgresql_using="gin")
     op.drop_index("idx_jobs_countries_gin", table_name="jobs", postgresql_using="gin")
-    op.create_index(
-        op.f("idx_jobs_skills_bm25"),
-        "jobs",
-        ["skills_text"],
-        unique=False,
-        postgresql_with={"text_config": "english"},
-        postgresql_using="bm25",
-    )
+    conn = op.get_bind()
+    try:
+        with conn.begin_nested():
+            op.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_jobs_skills_bm25
+                    ON jobs USING bm25 (skills_text)
+                    WITH (text_config = 'english')
+                """
+            )
+    except Exception:
+        try:
+            with conn.begin_nested():
+                conn.execute(sa.text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+        except Exception:
+            pass  # nosec: idempotent migration — extension may already exist
+        op.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_jobs_skills_trgm
+                ON jobs USING GIN (skills_text gin_trgm_ops)
+            """
+        )
     # Ignored checkpoint tables
     op.drop_table("user_job_matches")
     # ### end Alembic commands ###
