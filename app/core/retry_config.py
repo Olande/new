@@ -35,7 +35,7 @@ EMBEDDING_RETRY = RetryConfig(max_attempts=5, initial_wait=1, max_wait=30)
 SEARCH_RETRY = RetryConfig(max_attempts=6, initial_wait=3, max_wait=60)
 
 
-def with_retry(config: RetryConfig | None = None, **overrides):
+def with_retry(config: RetryConfig | None = None):
     cfg = config or API_RETRY
     return retry(
         retry=retry_if_exception_type(cfg.retryable_exceptions),

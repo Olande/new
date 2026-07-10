@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Callable
-from typing import Any, TypeVar
-
-T = TypeVar("T")
+from typing import Any
 
 
 class PaginationParams:
@@ -18,7 +16,7 @@ class PaginationParams:
 DEFAULT_PAGINATION = PaginationParams()
 
 
-async def paginate_api(
+async def paginate_api[T](
     fetch_page: Callable[[int, int], Any],
     extract_items: Callable[[dict], list[T]],
     config: PaginationParams = DEFAULT_PAGINATION,

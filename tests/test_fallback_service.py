@@ -2,7 +2,7 @@
 
 import asyncio
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -217,7 +217,7 @@ async def test_malformed_job_dropped(fallback_service, job_repo, mocker):
                 source_name="jobdatalake",
                 source_job_id="valid_1",
                 source_url="https://example.com",
-                first_seen_at=datetime.utcnow(),
+                first_seen_at=datetime.now(UTC),
             ),
         )
 
@@ -263,9 +263,10 @@ async def test_get_job_fallback(fallback_service, job_repo, mocker):
             source_name="jobdatalake",
             source_job_id="jdl_201",
             source_url="https://example.com",
-            first_seen_at=datetime.utcnow(),
+            first_seen_at=datetime.now(UTC),
         ),
     )
+
     mocker.patch(
         "app.mcp.services.job_fallback_service.normalize_job", return_value=valid_jc
     )

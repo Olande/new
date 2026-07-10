@@ -2,21 +2,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from langchain.chat_models import init_chat_model
 from langgraph.types import Command, Send
 
-from app.core.config.settings import settings
 from app.core.db.base import async_session
 from app.core.jdl.schemas import JobSearchCriteria
 from app.graph.graph_state import QAGraphState
+from app.graph.models import get_fast_model
 from app.retrieval.hybrid_search import search_jobs
 
 MAX_HEURISTIC_ATTEMPTS = 2
 DEFAULT_TOP_N = 5
-
-
-def get_fast_model():
-    return init_chat_model(model="gemini-2.5-flash", api_key=settings.gemini_api_key)
 
 
 async def load_career_memories_from_store(

@@ -39,12 +39,8 @@ async def process_in_batches[T, U](
         async with semaphore:
             if limiter:
                 async with limiter:
-                    result = processor(item)
-            else:
-                result = processor(item)
-        if asyncio.iscoroutine(result):
-            return await result
-        return result  # type: ignore[return-value]
+                    return await processor(item)
+            return await processor(item)
 
     results: list[U | BaseException] = []
     for batch in batched(items, config.batch_size, strict=False):

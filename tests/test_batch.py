@@ -23,9 +23,12 @@ async def test_process_in_batches_all_succeed():
 
 @pytest.mark.asyncio
 async def test_process_in_batches_one_fails():
+    async def divide(x: int) -> int:
+        return 10 // x
+
     results = await process_in_batches(
         items=[1, 0, 3],
-        processor=lambda x: 10 // x,
+        processor=divide,
         config=BatchProcessorConfig(batch_size=2, return_exceptions=True),
     )
     assert results[0] == 10
@@ -35,9 +38,12 @@ async def test_process_in_batches_one_fails():
 
 @pytest.mark.asyncio
 async def test_process_in_batches_all_fail():
+    async def divide(x: int) -> int:
+        return 10 // x
+
     results = await process_in_batches(
         items=[0, 0],
-        processor=lambda x: 10 // x,
+        processor=divide,
         config=BatchProcessorConfig(batch_size=1, return_exceptions=True),
     )
     assert len(results) == 2
@@ -46,9 +52,12 @@ async def test_process_in_batches_all_fail():
 
 @pytest.mark.asyncio
 async def test_process_in_batches_empty():
+    async def identity(x: int) -> int:
+        return x
+
     results = await process_in_batches(
         items=[],
-        processor=lambda x: x,
+        processor=identity,
         config=BatchProcessorConfig(),
     )
     assert results == []

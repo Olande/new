@@ -1,30 +1,19 @@
 from __future__ import annotations
 
-from langchain.chat_models import init_chat_model
 from langgraph.graph import END
 from langgraph.types import Command, Overwrite
 
-from app.core.config.settings import settings
 from app.graph.graph_state import (
     CritiqueResult,
     GeneratedResponse,
     JobScore,
     QAGraphState,
 )
+from app.graph.models import get_fast_model, get_frontier_model
 
 MAX_HEURISTIC_ATTEMPTS = 2
 MAX_VERIFICATION_ATTEMPTS = 2
 DEFAULT_TOP_N = 5
-
-
-def get_fast_model():
-    return init_chat_model(model="gemini-2.5-flash", api_key=settings.gemini_api_key)
-
-
-def get_frontier_model():
-    return init_chat_model(
-        model="gemini-3.1-flash-lite", api_key=settings.gemini_api_key
-    )
 
 
 async def score_candidate(state: dict) -> dict:
