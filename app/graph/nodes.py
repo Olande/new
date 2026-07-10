@@ -14,17 +14,17 @@ DEFAULT_TOP_N = 5
 
 def get_fast_model():
     return init_chat_model(
-        model="deepseek-v4-flash",
-        api_key=settings.deepseek_api_key,
-        extra_body={"thinking": {"type": "disabled"}},
+        model="gemini-2.5-flash",
+        api_key=settings.gemini_api_key,
+        # extra_body={"thinking": {"type": "disabled"}},
     )
 
 
 def get_frontier_model():
     return init_chat_model(
-        model="deepseek-v4-pro",
-        api_key=settings.deepseek_api_key,
-        extra_body={"thinking": {"type": "disabled"}},
+        model="gemini-3.1-flash-lite",
+        api_key=settings.gemini_api_key,
+        # extra_body={"thinking": {"type": "disabled"}},
     )
 
 
@@ -161,10 +161,6 @@ def find_ungrounded_claims(state: QAGraphState) -> list[str]:
 
 
 async def heuristic_check(state: QAGraphState) -> Command:
-    """
-    Deterministic grounding check: every claim's job_id must reference a
-    job actually returned by hybrid_search. No LLM call here.
-    """
     if state.draft_response.insufficient_data:
         return Command(goto=END)
 

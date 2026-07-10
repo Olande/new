@@ -8,12 +8,12 @@ Metrics are computed with ``ir-measures``. ``no_match`` examples are excluded fr
 ranked metrics (nDCG / RR / Recall) and reported separately.
 """
 
-from app.evaluation.constants import (
+from app.evaluation.metrics import compute_aggregate_metrics, format_metrics
+from app.evaluation.search import (
     DEFAULT_SEARCH_PARAMS,
     RETRIEVAL_DATASET,
     SearchParams,
 )
-from app.evaluation.metrics import compute_aggregate_metrics, format_metrics
 
 __all__ = [
     "DEFAULT_SEARCH_PARAMS",

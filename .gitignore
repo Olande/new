@@ -11,3 +11,8 @@ graphify-out/*.tmp
 *__pycache__
 graphify-out
 db_tests.py
+
+# Antigravity/Grok/Specify tools
+.grok/
+.agents/
+.specify/

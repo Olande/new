@@ -1,16 +1,20 @@
 from collections import defaultdict
+from functools import cache, partial
 from typing import Any
 
 import ir_measures
 from ir_measures import RR, R, nDCG
+from langsmith.schemas import Example, Run
+from loguru import logger
 
-from app.evaluation.constants import MATCHING_STYLES, NO_MATCH_STYLE
+from app.evaluation.search import MATCHING_STYLES, NO_MATCH_STYLE
 
-# Primary measures reported for matching queries
+NDCG_REGRESSION_THRESHOLD = 0.05
+MRR_REGRESSION_THRESHOLD = 0.05
+
 MEASURES = [nDCG @ 10, nDCG @ 20, RR, R @ 10, R @ 20]
 
-# Friendly keys for printing / JSON
-_MEASURE_KEYS = {
+MEASURE_KEYS = {
     nDCG @ 10: "nDCG@10",
     nDCG @ 20: "nDCG@20",
     RR: "RR",
@@ -18,9 +22,10 @@ _MEASURE_KEYS = {
     R @ 20: "Recall@20",
 }
 
+METRIC_ORDER = ("nDCG@10", "nDCG@20", "RR", "Recall@10", "Recall@20")
+
 
 def query_style_of(example: Any) -> str:
-    """Read query_style from LangSmith example metadata (or inputs fallback)."""
     meta = getattr(example, "metadata", None) or {}
     if isinstance(meta, dict) and meta.get("query_style"):
         return str(meta["query_style"])
@@ -45,14 +50,12 @@ def is_matching_example(example: Any) -> bool:
         return False
     if style in MATCHING_STYLES:
         return expected_job_id_of(example) is not None
-    # Unknown style: treat as matching only when a real job id is present
     return expected_job_id_of(example) is not None
 
 
 def ranked_ids_to_run(
     qid: str, ranked_job_ids: list[str]
 ) -> dict[str, dict[str, float]]:
-    """Build an ir-measures run dict from an ordered id list (rank → descending score)."""
     return {
         qid: {
             job_id: float(len(ranked_job_ids) - rank)
@@ -71,12 +74,6 @@ def build_qrels_and_run_from_rankings(
     examples: list[Any],
     rankings: dict[str, list[str] | dict[str, float]],
 ) -> tuple[dict[str, dict[str, int]], dict[str, dict[str, float]], list[str]]:
-    """
-    Build qrels/run for matching examples only.
-
-    ``rankings`` maps query_id -> ordered job id list OR id->score map.
-    Returns (qrels, run, skipped_query_ids) where skipped are no_match / unlabeled.
-    """
     qrels: dict[str, dict[str, int]] = {}
     run: dict[str, dict[str, float]] = {}
     skipped: list[str] = []
@@ -103,12 +100,8 @@ def build_qrels_and_run_from_rankings(
     return qrels, run, skipped
 
 
-def _to_friendly(raw: dict) -> dict[str, float]:
-    out: dict[str, float] = {}
-    for measure, value in raw.items():
-        key = _MEASURE_KEYS.get(measure, str(measure))
-        out[key] = float(value) if value is not None else 0.0
-    return out
+def to_friendly(raw: dict) -> dict[str, float]:
+    return {MEASURE_KEYS.get(m, str(m)): float(v or 0.0) for m, v in raw.items()}
 
 
 def compute_aggregate_metrics(
@@ -116,24 +109,17 @@ def compute_aggregate_metrics(
     run: dict[str, dict[str, float]],
     measures: list | None = None,
 ) -> dict[str, float]:
-    """Aggregate IR metrics over the provided qrels/run (matching queries only)."""
     if not qrels:
-        return {key: 0.0 for key in _MEASURE_KEYS.values()}
+        return {key: 0.0 for key in MEASURE_KEYS.values()}
     measures = measures or MEASURES
     raw = ir_measures.calc_aggregate(measures, qrels, run)
-    return _to_friendly(raw)
+    return to_friendly(raw)
 
 
 def compute_metrics_by_style(
     examples: list[Any],
     rankings: dict[str, list[str] | dict[str, float]],
 ) -> dict[str, Any]:
-    """
-    Compute overall + per-style metrics, plus a no_match contamination summary.
-
-    Contamination for no_match: fraction of no_match queries that returned ≥1 hit
-    (any result). Useful as a soft negative check when the index is golden-only.
-    """
     by_style: dict[str, list[Any]] = defaultdict(list)
     for ex in examples:
         by_style[query_style_of(ex)].append(ex)
@@ -162,21 +148,13 @@ def compute_metrics_by_style(
 
     no_match_examples = by_style.get(NO_MATCH_STYLE, [])
     if no_match_examples:
-        with_hits = 0
-        empty = 0
-        for ex in no_match_examples:
-            qid = str(ex.id)
-            ranking = rankings.get(qid, {})
-            n_hits = len(ranking) if ranking is not None else 0
-            if n_hits > 0:
-                with_hits += 1
-            else:
-                empty += 1
-        n = len(no_match_examples)
+        hit_flags = [bool(rankings.get(str(ex.id)) or {}) for ex in no_match_examples]
+        n = len(hit_flags)
+        any_hit_rate = sum(hit_flags) / n if n else 0.0
         result["no_match"] = {
             "n": n,
-            "empty_result_rate": empty / n if n else 0.0,
-            "any_hit_rate": with_hits / n if n else 0.0,
+            "empty_result_rate": 1 - any_hit_rate if n else 0.0,
+            "any_hit_rate": any_hit_rate,
             "note": (
                 "no_match queries have no relevant golden job; they are excluded "
                 "from nDCG/RR/Recall aggregates. any_hit_rate is informational only "
@@ -200,7 +178,11 @@ def per_query_metrics(
     qrels = {qid: {expected_job_id: 1}}
     run = ranked_ids_to_run(qid, ranked_job_ids)
     raw = ir_measures.calc_aggregate(measures, qrels, run)
-    return _to_friendly(raw)
+    return to_friendly(raw)
+
+
+def fmt_scores(scores: dict, pad: str) -> list[str]:
+    return [f"{pad}{key}: {scores[key]:.4f}" for key in METRIC_ORDER if key in scores]
 
 
 def format_metrics(report: dict[str, Any], indent: int = 0) -> str:
@@ -209,9 +191,7 @@ def format_metrics(report: dict[str, Any], indent: int = 0) -> str:
     lines: list[str] = []
     overall = report.get("overall", {})
     lines.append(f"{pad}overall (n_matching={report.get('n_matching', 0)}):")
-    for key in ("nDCG@10", "nDCG@20", "RR", "Recall@10", "Recall@20"):
-        if key in overall:
-            lines.append(f"{pad}  {key}: {overall[key]:.4f}")
+    lines.extend(fmt_scores(overall, pad + "  "))
 
     by_style = report.get("by_style") or {}
     if by_style:
@@ -219,9 +199,7 @@ def format_metrics(report: dict[str, Any], indent: int = 0) -> str:
         for style, scores in by_style.items():
             n = scores.get("n", "?")
             lines.append(f"{pad}  [{style}] n={n}")
-            for key in ("nDCG@10", "nDCG@20", "RR", "Recall@10", "Recall@20"):
-                if key in scores:
-                    lines.append(f"{pad}    {key}: {scores[key]:.4f}")
+            lines.extend(fmt_scores(scores, pad + "    "))
 
     no_match = report.get("no_match") or {}
     if no_match:
@@ -231,3 +209,55 @@ def format_metrics(report: dict[str, Any], indent: int = 0) -> str:
             f"any_hit_rate={no_match.get('any_hit_rate', 0):.4f}"
         )
     return "\n".join(lines)
+
+
+def extract_ranked_job_ids(run: Run) -> list[str]:
+    outputs = run.outputs or {}
+    ranked_jobs = outputs.get("ranked_jobs") or []
+    if ranked_jobs and isinstance(ranked_jobs[0], dict):
+        return [str(job["id"]) for job in ranked_jobs]
+    return [str(job_id) for job_id in outputs.get("ranked_job_ids", [])]
+
+
+@cache
+def metrics_for_ranked(
+    qid: str, expected: str, ranked: tuple[str, ...]
+) -> dict[str, float] | None:
+    return per_query_metrics(qid, expected, list(ranked))
+
+
+def metrics_for(run: Run, example: Example) -> dict[str, float] | None:
+    expected = expected_job_id_of(example)
+    if expected is None:
+        return None
+    ranked = tuple(extract_ranked_job_ids(run))
+    return metrics_for_ranked(str(example.id), expected, ranked)
+
+
+def score(run: Run, example: Example, metric_key: str, feedback_key: str) -> dict:
+    try:
+        outputs = run.outputs or {}
+        if not outputs.get("ranked_jobs") and not outputs.get("ranked_job_ids"):
+            return {"key": feedback_key, "score": 0.0}
+
+        metrics = metrics_for(run, example)
+        if metrics is None:
+            return {
+                "key": feedback_key,
+                "score": None,
+                "comment": f"skipped ({query_style_of(example)} / no expected_job_id)",
+            }
+
+        return {"key": feedback_key, "score": float(metrics.get(metric_key, 0.0))}
+    except Exception as e:
+        logger.error(f"Error computing {feedback_key}: {e}")
+        return {"key": feedback_key, "score": 0.0, "comment": str(e)}
+
+
+ndcg_at_10 = partial(score, metric_key="nDCG@10", feedback_key="ndcg_at_10")
+ndcg_at_20 = partial(score, metric_key="nDCG@20", feedback_key="ndcg_at_20")
+mrr = partial(score, metric_key="RR", feedback_key="mrr")
+recall_at_10 = partial(score, metric_key="Recall@10", feedback_key="recall_at_10")
+recall_at_20 = partial(score, metric_key="Recall@20", feedback_key="recall_at_20")
+
+RETRIEVAL_EVALUATORS = [ndcg_at_10, ndcg_at_20, mrr, recall_at_10, recall_at_20]

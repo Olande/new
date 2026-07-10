@@ -1,12 +1,3 @@
-"""Offline retrieval evaluation (no LangSmith experiment write unless --upload).
-
-Usage:
-  uv run python -m app.evaluation.run_local
-  uv run python -m app.evaluation.run_local --bm25 0.9 --vector 0.1 --threshold 0.5
-  uv run python -m app.evaluation.run_local --grid
-  uv run python -m app.evaluation.run_local --per-query
-"""
-
 import argparse
 import asyncio
 import json
@@ -18,11 +9,6 @@ from langsmith import Client
 from loguru import logger
 
 from app.core.db.base import async_session
-from app.evaluation.constants import (
-    DEFAULT_SEARCH_PARAMS,
-    RETRIEVAL_DATASET,
-    SearchParams,
-)
 from app.evaluation.metrics import (
     compute_metrics_by_style,
     expected_job_id_of,
@@ -30,6 +16,9 @@ from app.evaluation.metrics import (
     query_style_of,
 )
 from app.evaluation.search import (
+    DEFAULT_SEARCH_PARAMS,
+    RETRIEVAL_DATASET,
+    SearchParams,
     precompute_query_embeddings,
     search_jobs_with_embedding,
 )

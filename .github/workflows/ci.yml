@@ -6,9 +6,8 @@ on:
   pull_request:
     branches: [ main ]
     paths:
-      - 'app/agents/**'
-      - '../../app/core/llm/llm.py'
-      - 'app/schemas/agents/**'
+      - 'app/evaluation/**'
+      - 'app/graph/**'
       - 'tests/**'
       - 'pyproject.toml'
       - 'uv.lock'

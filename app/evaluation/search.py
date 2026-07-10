@@ -1,15 +1,40 @@
 import textwrap
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from app.core.db.base import async_session
 from app.core.db.models.job import JobDescription
 from app.core.jdl.schemas import JobSearchResult
 from app.core.llm.embeddings import get_embeddings_client
-from app.evaluation.constants import DEFAULT_SEARCH_PARAMS, SearchParams
 from app.retrieval.hybrid_search import search_jobs
+
+# LangSmith dataset produced by scripts/seed_eval_datasets.py
+RETRIEVAL_DATASET = "careerpilot-matching-eval-v2"
+
+# Query styles stored in example metadata by the seeder
+MATCHING_STYLES = frozenset({"exact_terms", "paraphrase", "distractor"})
+NO_MATCH_STYLE = "no_match"
+
+
+@dataclass(frozen=True, slots=True)
+class SearchParams:
+    """Hybrid search knobs used for both production defaults and eval sweeps."""
+
+    bm25_weight: float = 0.1
+    vector_weight: float = 0.9
+    cosine_distance_threshold: float = 0.5
+    result_limit: int = 20
+
+    def as_dict(self) -> dict:
+        return asdict(self)
+
+
+# Align with app.retrieval.hybrid_search.search_jobs defaults
+DEFAULT_SEARCH_PARAMS = SearchParams()
 
 
 async def search_jobs_with_embedding(
@@ -92,25 +117,43 @@ async def run_search(
     return ranked
 
 
+def _is_rate_limited(exc: BaseException) -> bool:
+    return "429" in str(exc)
+
+
+@retry(
+    retry=retry_if_exception(_is_rate_limited),
+    stop=stop_after_attempt(6),
+    wait=wait_exponential(multiplier=1, min=3, max=60),
+    reraise=True,
+)
+async def _embed_query(client: Any, query: str) -> list[float]:
+    return await client.aembed_query(query)
+
+
 async def precompute_query_embeddings(queries: list[str]) -> dict[str, list[float]]:
     """Embed unique query strings once (for grid search / multi-param runs)."""
-    import asyncio
-
     client = get_embeddings_client()
     unique = list(dict.fromkeys(queries))
     embeddings: dict[str, list[float]] = {}
     for q in unique:
-        for attempt in range(6):
-            try:
-                embeddings[q] = await client.aembed_query(q)
-                break
-            except Exception as e:
-                if "429" in str(e) and attempt < 5:
-                    wait_sec = 2**attempt + 3
-                    print(
-                        f"Rate limited (429) on query {q!r}. Retrying in {wait_sec}s..."
-                    )
-                    await asyncio.sleep(wait_sec)
-                else:
-                    raise e
+        embeddings[q] = await _embed_query(client, q)
     return embeddings
+
+
+async def retrieval_target(
+    inputs: dict,
+    params: SearchParams = DEFAULT_SEARCH_PARAMS,
+) -> dict:
+    """Run production hybrid search and return ranked jobs for evaluators."""
+    query = inputs.get("query", "")
+    ranked_jobs = await run_search(
+        query_text=query,
+        params=params,
+        include_snippets=True,
+    )
+    return {
+        "ranked_jobs": ranked_jobs,
+        "ranked_job_ids": [j["id"] for j in ranked_jobs],
+        "search_params": params.as_dict(),
+    }
