@@ -1,0 +1,104 @@
+[transformers] PyTorch was not found. Models won't be available and only tokenizers, configuration and file/data utilities can be used.
+Both GOOGLE_API_KEY and GEMINI_API_KEY are set. Using GOOGLE_API_KEY.
+Fetching examples from LangSmith dataset 'careerpilot-matching-eval-v2'...
+Loaded 20 examples.
+Pre-computing query embeddings...
+Evaluating with {'bm25_weight': 0.2069, 'vector_weight': 0.7931, 'cosine_distance_threshold': 0.4513, 'result_limit': 20} ...
+  DIAG: qid=194769d4... expected='e183b24e-b7af-59df-b596-1c9aa356ea63' (type=str) expected_in_run=True run_keys_sample=['e183b24e-b7af-59df-b596-1c9aa356ea63', '37786c5d-1ff0-4314-acac-5a27bfe64034', '25c90657-062d-4250-a5e4-89731f3f25be'] run_key_types=['str'] run_size=3
+  DIAG: skip qid=2443718a... reason=no_match style=no_match
+  DIAG: skip qid=2ee1438b... reason=no_match style=no_match
+  DIAG: skip qid=36f7d1ca... reason=no_match style=no_match
+  DIAG: qid=4076f84e... expected='9a0dd367-fb8b-5b23-98df-d5a838cb923d' (type=str) expected_in_run=True run_keys_sample=['9a0dd367-fb8b-5b23-98df-d5a838cb923d', 'b72f3f4f-0b78-57ff-b7c6-f2e85df346f8'] run_key_types=['str'] run_size=2
+  DIAG: qid=59f5c166... expected='e183b24e-b7af-59df-b596-1c9aa356ea63' (type=str) expected_in_run=False run_keys_sample=['c95dd5a5-b9eb-583f-bc38-b1b30cd03b38', '8fe0c2b4-f82f-4e5d-9f1b-7ce2f58c803b'] run_key_types=['str'] run_size=2
+  DIAG: qid=5b568208... expected='e183b24e-b7af-59df-b596-1c9aa356ea63' (type=str) expected_in_run=True run_keys_sample=['e183b24e-b7af-59df-b596-1c9aa356ea63'] run_key_types=['str'] run_size=1
+  DIAG: qid=7aad2726... expected='517291a4-df31-5026-88b2-bb95f1e91c7d' (type=str) expected_in_run=True run_keys_sample=['517291a4-df31-5026-88b2-bb95f1e91c7d', 'c95dd5a5-b9eb-583f-bc38-b1b30cd03b38', '8fe0c2b4-f82f-4e5d-9f1b-7ce2f58c803b'] run_key_types=['str'] run_size=3
+  DIAG: qid=841e34a9... expected='c95dd5a5-b9eb-583f-bc38-b1b30cd03b38' (type=str) expected_in_run=True run_keys_sample=['c95dd5a5-b9eb-583f-bc38-b1b30cd03b38', '8fe0c2b4-f82f-4e5d-9f1b-7ce2f58c803b'] run_key_types=['str'] run_size=2
+  DIAG: qid=8fd24ad7... expected='b72f3f4f-0b78-57ff-b7c6-f2e85df346f8' (type=str) expected_in_run=True run_keys_sample=['b72f3f4f-0b78-57ff-b7c6-f2e85df346f8', '37786c5d-1ff0-4314-acac-5a27bfe64034', '25c90657-062d-4250-a5e4-89731f3f25be'] run_key_types=['str'] run_size=3
+  DIAG: qid=923b29dd... expected='8863088a-a716-5ca4-b2e4-aed3edfea26e' (type=str) expected_in_run=True run_keys_sample=['6445da38-1c45-4198-8e07-728c1a3e08c3', '8863088a-a716-5ca4-b2e4-aed3edfea26e'] run_key_types=['str'] run_size=2
+  DIAG: qid=a0648c1c... expected='9a0dd367-fb8b-5b23-98df-d5a838cb923d' (type=str) expected_in_run=True run_keys_sample=['9a0dd367-fb8b-5b23-98df-d5a838cb923d', 'b72f3f4f-0b78-57ff-b7c6-f2e85df346f8', '37786c5d-1ff0-4314-acac-5a27bfe64034'] run_key_types=['str'] run_size=3
+  DIAG: qid=a0cd4e36... expected='517291a4-df31-5026-88b2-bb95f1e91c7d' (type=str) expected_in_run=True run_keys_sample=['517291a4-df31-5026-88b2-bb95f1e91c7d', 'c95dd5a5-b9eb-583f-bc38-b1b30cd03b38', '8fe0c2b4-f82f-4e5d-9f1b-7ce2f58c803b'] run_key_types=['str'] run_size=3
+  DIAG: qid=b015b4a5... expected='6a6a64b8-c572-59b9-8238-a34236f3e5c3' (type=str) expected_in_run=True run_keys_sample=['6a6a64b8-c572-59b9-8238-a34236f3e5c3', '37786c5d-1ff0-4314-acac-5a27bfe64034', '25c90657-062d-4250-a5e4-89731f3f25be'] run_key_types=['str'] run_size=3
+  DIAG: qid=c55ed3db... expected='6a6a64b8-c572-59b9-8238-a34236f3e5c3' (type=str) expected_in_run=True run_keys_sample=['6a6a64b8-c572-59b9-8238-a34236f3e5c3', '6445da38-1c45-4198-8e07-728c1a3e08c3', '37786c5d-1ff0-4314-acac-5a27bfe64034'] run_key_types=['str'] run_size=4
+  DIAG: qid=c8b87a10... expected='c95dd5a5-b9eb-583f-bc38-b1b30cd03b38' (type=str) expected_in_run=True run_keys_sample=['c95dd5a5-b9eb-583f-bc38-b1b30cd03b38', '517291a4-df31-5026-88b2-bb95f1e91c7d', '6445da38-1c45-4198-8e07-728c1a3e08c3'] run_key_types=['str'] run_size=6
+  DIAG: qid=cab73d06... expected='b72f3f4f-0b78-57ff-b7c6-f2e85df346f8' (type=str) expected_in_run=True run_keys_sample=['b72f3f4f-0b78-57ff-b7c6-f2e85df346f8', '9a0dd367-fb8b-5b23-98df-d5a838cb923d'] run_key_types=['str'] run_size=2
+  DIAG: qid=d38a3ba0... expected='8863088a-a716-5ca4-b2e4-aed3edfea26e' (type=str) expected_in_run=True run_keys_sample=['8863088a-a716-5ca4-b2e4-aed3edfea26e', '6445da38-1c45-4198-8e07-728c1a3e08c3', '37786c5d-1ff0-4314-acac-5a27bfe64034'] run_key_types=['str'] run_size=4
+  DIAG: qid=dbb4413f... expected='8863088a-a716-5ca4-b2e4-aed3edfea26e' (type=str) expected_in_run=False run_keys_sample=['74784921-d860-4287-8488-b4927a7e2c54', '37786c5d-1ff0-4314-acac-5a27bfe64034', '25c90657-062d-4250-a5e4-89731f3f25be'] run_key_types=['str'] run_size=3
+  DIAG: qid=eb86a138... expected='c95dd5a5-b9eb-583f-bc38-b1b30cd03b38' (type=str) expected_in_run=True run_keys_sample=['c95dd5a5-b9eb-583f-bc38-b1b30cd03b38', '8fe0c2b4-f82f-4e5d-9f1b-7ce2f58c803b'] run_key_types=['str'] run_size=2
+  DIAG: measures=[nDCG@10, nDCG@20, RR, R@10, R@20]
+  DIAG: n_qrels=17 n_run_queries=17
+  DIAG: queries_in_both=17 queries_in_qrels_only=0
+  DIAG: doc_id mismatch qid=59f5c166... expected='e183b24e-b7af-59df-b596-1c9aa356ea63' NOT in run keys (sample=['c95dd5a5-b9eb-583f-bc38-b1b30cd03b38', '8fe0c2b4-f82f-4e5d-9f1b-7ce2f58c803b'])
+  DIAG: doc_id mismatch qid=dbb4413f... expected='8863088a-a716-5ca4-b2e4-aed3edfea26e' NOT in run keys (sample=['74784921-d860-4287-8488-b4927a7e2c54', '37786c5d-1ff0-4314-acac-5a27bfe64034'])
+  DIAG: doc_id_matches=15 doc_id_mismatches=2
+  DIAG: raw_results={'R@10': 0.8823529411764706, 'R@20': 0.8823529411764706, 'nDCG@20': 0.860642926680674, 'RR': 0.8529411764705882, 'nDCG@10': 0.860642926680674}
+  DIAG: friendly_results={'Recall@10': 0.8823529411764706, 'Recall@20': 0.8823529411764706, 'nDCG@20': 0.860642926680674, 'RR': 0.8529411764705882, 'nDCG@10': 0.860642926680674}
+  DIAG: qid=59f5c166... expected='e183b24e-b7af-59df-b596-1c9aa356ea63' (type=str) expected_in_run=False run_keys_sample=['c95dd5a5-b9eb-583f-bc38-b1b30cd03b38', '8fe0c2b4-f82f-4e5d-9f1b-7ce2f58c803b'] run_key_types=['str'] run_size=2
+  DIAG: qid=923b29dd... expected='8863088a-a716-5ca4-b2e4-aed3edfea26e' (type=str) expected_in_run=True run_keys_sample=['6445da38-1c45-4198-8e07-728c1a3e08c3', '8863088a-a716-5ca4-b2e4-aed3edfea26e'] run_key_types=['str'] run_size=2
+  DIAG: qid=eb86a138... expected='c95dd5a5-b9eb-583f-bc38-b1b30cd03b38' (type=str) expected_in_run=True run_keys_sample=['c95dd5a5-b9eb-583f-bc38-b1b30cd03b38', '8fe0c2b4-f82f-4e5d-9f1b-7ce2f58c803b'] run_key_types=['str'] run_size=2
+  DIAG: measures=[nDCG@10, nDCG@20, RR, R@10, R@20]
+  DIAG: n_qrels=3 n_run_queries=3
+  DIAG: queries_in_both=3 queries_in_qrels_only=0
+  DIAG: doc_id mismatch qid=59f5c166... expected='e183b24e-b7af-59df-b596-1c9aa356ea63' NOT in run keys (sample=['c95dd5a5-b9eb-583f-bc38-b1b30cd03b38', '8fe0c2b4-f82f-4e5d-9f1b-7ce2f58c803b'])
+  DIAG: doc_id_matches=2 doc_id_mismatches=1
+  DIAG: raw_results={'R@10': 0.6666666666666666, 'R@20': 0.6666666666666666, 'nDCG@20': 0.5436432511904858, 'RR': 0.5, 'nDCG@10': 0.5436432511904858}
+  DIAG: friendly_results={'Recall@10': 0.6666666666666666, 'Recall@20': 0.6666666666666666, 'nDCG@20': 0.5436432511904858, 'RR': 0.5, 'nDCG@10': 0.5436432511904858}
+  DIAG: qid=194769d4... expected='e183b24e-b7af-59df-b596-1c9aa356ea63' (type=str) expected_in_run=True run_keys_sample=['e183b24e-b7af-59df-b596-1c9aa356ea63', '37786c5d-1ff0-4314-acac-5a27bfe64034', '25c90657-062d-4250-a5e4-89731f3f25be'] run_key_types=['str'] run_size=3
+  DIAG: qid=7aad2726... expected='517291a4-df31-5026-88b2-bb95f1e91c7d' (type=str) expected_in_run=True run_keys_sample=['517291a4-df31-5026-88b2-bb95f1e91c7d', 'c95dd5a5-b9eb-583f-bc38-b1b30cd03b38', '8fe0c2b4-f82f-4e5d-9f1b-7ce2f58c803b'] run_key_types=['str'] run_size=3
+  DIAG: qid=841e34a9... expected='c95dd5a5-b9eb-583f-bc38-b1b30cd03b38' (type=str) expected_in_run=True run_keys_sample=['c95dd5a5-b9eb-583f-bc38-b1b30cd03b38', '8fe0c2b4-f82f-4e5d-9f1b-7ce2f58c803b'] run_key_types=['str'] run_size=2
+  DIAG: qid=a0648c1c... expected='9a0dd367-fb8b-5b23-98df-d5a838cb923d' (type=str) expected_in_run=True run_keys_sample=['9a0dd367-fb8b-5b23-98df-d5a838cb923d', 'b72f3f4f-0b78-57ff-b7c6-f2e85df346f8', '37786c5d-1ff0-4314-acac-5a27bfe64034'] run_key_types=['str'] run_size=3
+  DIAG: qid=c55ed3db... expected='6a6a64b8-c572-59b9-8238-a34236f3e5c3' (type=str) expected_in_run=True run_keys_sample=['6a6a64b8-c572-59b9-8238-a34236f3e5c3', '6445da38-1c45-4198-8e07-728c1a3e08c3', '37786c5d-1ff0-4314-acac-5a27bfe64034'] run_key_types=['str'] run_size=4
+  DIAG: qid=cab73d06... expected='b72f3f4f-0b78-57ff-b7c6-f2e85df346f8' (type=str) expected_in_run=True run_keys_sample=['b72f3f4f-0b78-57ff-b7c6-f2e85df346f8', '9a0dd367-fb8b-5b23-98df-d5a838cb923d'] run_key_types=['str'] run_size=2
+  DIAG: qid=d38a3ba0... expected='8863088a-a716-5ca4-b2e4-aed3edfea26e' (type=str) expected_in_run=True run_keys_sample=['8863088a-a716-5ca4-b2e4-aed3edfea26e', '6445da38-1c45-4198-8e07-728c1a3e08c3', '37786c5d-1ff0-4314-acac-5a27bfe64034'] run_key_types=['str'] run_size=4
+  DIAG: measures=[nDCG@10, nDCG@20, RR, R@10, R@20]
+  DIAG: n_qrels=7 n_run_queries=7
+  DIAG: queries_in_both=7 queries_in_qrels_only=0
+  DIAG: doc_id_matches=7 doc_id_mismatches=0
+  DIAG: raw_results={'R@10': 1.0, 'R@20': 1.0, 'nDCG@20': 1.0, 'RR': 1.0, 'nDCG@10': 1.0}
+  DIAG: friendly_results={'Recall@10': 1.0, 'Recall@20': 1.0, 'nDCG@20': 1.0, 'RR': 1.0, 'nDCG@10': 1.0}
+  DIAG: qid=4076f84e... expected='9a0dd367-fb8b-5b23-98df-d5a838cb923d' (type=str) expected_in_run=True run_keys_sample=['9a0dd367-fb8b-5b23-98df-d5a838cb923d', 'b72f3f4f-0b78-57ff-b7c6-f2e85df346f8'] run_key_types=['str'] run_size=2
+  DIAG: qid=5b568208... expected='e183b24e-b7af-59df-b596-1c9aa356ea63' (type=str) expected_in_run=True run_keys_sample=['e183b24e-b7af-59df-b596-1c9aa356ea63'] run_key_types=['str'] run_size=1
+  DIAG: qid=8fd24ad7... expected='b72f3f4f-0b78-57ff-b7c6-f2e85df346f8' (type=str) expected_in_run=True run_keys_sample=['b72f3f4f-0b78-57ff-b7c6-f2e85df346f8', '37786c5d-1ff0-4314-acac-5a27bfe64034', '25c90657-062d-4250-a5e4-89731f3f25be'] run_key_types=['str'] run_size=3
+  DIAG: qid=a0cd4e36... expected='517291a4-df31-5026-88b2-bb95f1e91c7d' (type=str) expected_in_run=True run_keys_sample=['517291a4-df31-5026-88b2-bb95f1e91c7d', 'c95dd5a5-b9eb-583f-bc38-b1b30cd03b38', '8fe0c2b4-f82f-4e5d-9f1b-7ce2f58c803b'] run_key_types=['str'] run_size=3
+  DIAG: qid=b015b4a5... expected='6a6a64b8-c572-59b9-8238-a34236f3e5c3' (type=str) expected_in_run=True run_keys_sample=['6a6a64b8-c572-59b9-8238-a34236f3e5c3', '37786c5d-1ff0-4314-acac-5a27bfe64034', '25c90657-062d-4250-a5e4-89731f3f25be'] run_key_types=['str'] run_size=3
+  DIAG: qid=c8b87a10... expected='c95dd5a5-b9eb-583f-bc38-b1b30cd03b38' (type=str) expected_in_run=True run_keys_sample=['c95dd5a5-b9eb-583f-bc38-b1b30cd03b38', '517291a4-df31-5026-88b2-bb95f1e91c7d', '6445da38-1c45-4198-8e07-728c1a3e08c3'] run_key_types=['str'] run_size=6
+  DIAG: qid=dbb4413f... expected='8863088a-a716-5ca4-b2e4-aed3edfea26e' (type=str) expected_in_run=False run_keys_sample=['74784921-d860-4287-8488-b4927a7e2c54', '37786c5d-1ff0-4314-acac-5a27bfe64034', '25c90657-062d-4250-a5e4-89731f3f25be'] run_key_types=['str'] run_size=3
+  DIAG: measures=[nDCG@10, nDCG@20, RR, R@10, R@20]
+  DIAG: n_qrels=7 n_run_queries=7
+  DIAG: queries_in_both=7 queries_in_qrels_only=0
+  DIAG: doc_id mismatch qid=dbb4413f... expected='8863088a-a716-5ca4-b2e4-aed3edfea26e' NOT in run keys (sample=['74784921-d860-4287-8488-b4927a7e2c54', '37786c5d-1ff0-4314-acac-5a27bfe64034'])
+  DIAG: doc_id_matches=6 doc_id_mismatches=1
+  DIAG: raw_results={'R@10': 0.8571428571428571, 'R@20': 0.8571428571428571, 'nDCG@20': 0.8571428571428571, 'RR': 0.8571428571428571, 'nDCG@10': 0.8571428571428571}
+  DIAG: friendly_results={'Recall@10': 0.8571428571428571, 'Recall@20': 0.8571428571428571, 'nDCG@20': 0.8571428571428571, 'RR': 0.8571428571428571, 'nDCG@10': 0.8571428571428571}
+overall (n_matching=17):
+  nDCG@10: 0.8606
+  nDCG@20: 0.8606
+  RR: 0.8529
+  Recall@10: 0.8824
+  Recall@20: 0.8824
+by_style:
+  [distractor] n=3
+    nDCG@10: 0.5436
+    nDCG@20: 0.5436
+    RR: 0.5000
+    Recall@10: 0.6667
+    Recall@20: 0.6667
+  [exact_terms] n=7
+    nDCG@10: 1.0000
+    nDCG@20: 1.0000
+    RR: 1.0000
+    Recall@10: 1.0000
+    Recall@20: 1.0000
+  [paraphrase] n=7
+    nDCG@10: 0.8571
+    nDCG@20: 0.8571
+    RR: 0.8571
+    Recall@10: 0.8571
+    Recall@20: 0.8571
+no_match (n=3): empty_result_rate=0.0000, any_hit_rate=1.0000
+
+params: {
+  "bm25_weight": 0.2069,
+  "vector_weight": 0.7931,
+  "cosine_distance_threshold": 0.4513,
+  "result_limit": 20
+}

@@ -1,0 +1,59 @@
+Root Cause: Recall@20 Metric Anomaly
+======================================
+Date: 2026-07-10
+Investigator: CareerPilot AI Agent
+
+SYMPTOM
+-------
+Recall@20 reported as 0 consistently, while nDCG@10 and MRR were high (>0.8).
+
+INVESTIGATION METHOD
+--------------------
+1. Verified MEASURES includes R @ 20 → YES (line 18)
+2. Verified MEASURE_KEYS maps R @ 20 → "Recall@20" → YES (line 25)
+3. Verified call sites pass default MEASURES → YES (both sites use default)
+4. Checked ID format consistency between LangSmith and PostgreSQL:
+   - LangSmith expected_job_id: type=str, hyphenated UUID (e.g., "e183b24e-b7af-59df-b596-1c9aa356ea63")
+   - PostgreSQL r["id"] after str(): type=str, same hyphenated UUID format
+   - All 17 matching examples have exact string matches → NO FORMAT MISMATCH
+5. Ran full offline evaluation with per-query diagnostics added to both
+   build_qrels_and_run_from_rankings() and compute_aggregate_metrics()
+6. Observed that offline evaluation (run_local.py) produces correct metrics:
+   - Recall@20 = 0.8824 (15/17 queries found expected job in ranked results)
+   - Recall@10 = 0.8824
+   - nDCG@10 = 0.8606
+   - RR = 0.8529
+
+ROOT CAUSE (FOUND)
+------------------
+The `per_query_metrics()` function (line 229 in app/evaluation/metrics.py)
+has a HARDCODED default measures list that EXCLUDES R @ 20:
+
+    measures = measures or [nDCG @ 10, nDCG @ 20, RR, R @ 10]  # R @ 20 MISSING!
+
+This default is used by the LangSmith evaluator chain:
+    recall_at_20 → score() → metrics_for() → metrics_for_ranked() → per_query_metrics()
+
+Since per_query_metrics only computes [nDCG@10, nDCG@20, RR, R@10], the result
+dict does NOT contain a "Recall@20" key. Then:
+
+    score() calls m.get("Recall@20", 0.0) → returns 0.0 (key not found)
+
+AFFECTED CODE PATH
+------------------
+- LangSmith evaluators: recall_at_20 always returns 0
+- Offline evaluation (run_local.py): NOT affected — uses compute_aggregate_metrics with full MEASURES
+
+EVIDENCE
+--------
+DIAG: measures=[nDCG@10, nDCG@20, RR, R@10, R@20]    ← offline eval (correct)
+DIAG: raw_results={'R@10': 0.882, 'R@20': 0.882, ...} ← ir_measures returns both correctly
+DIAG: friendly_results={'Recall@10': 0.882, 'Recall@20': 0.882, ...}
+
+The offline path IS correct. Only the per_query_metrics default causes the bug.
+
+FIX
+---
+One-line change: add `R @ 20` to the default measures list in per_query_metrics():
+
+    measures = measures or [nDCG @ 10, nDCG @ 20, RR, R @ 10, R @ 20]
