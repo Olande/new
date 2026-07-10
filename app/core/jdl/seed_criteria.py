@@ -8,5 +8,4 @@ DISCOVERY_SEED_CRITERIA: list[JobSearchCriteria] = [
     JobSearchCriteria(job_function="Sales"),
     JobSearchCriteria(skills=["python"]),
     JobSearchCriteria(skills=["react"]),
-    # start small, expand once you see which seeds actually return volume
 ]

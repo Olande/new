@@ -22,7 +22,7 @@ from app.core.jdl.schemas import JobEmbeddingDocument
 
 EMBEDDING_TEXT_VERSION = 1
 EMBEDDING_BATCH_SIZE = 10
-EMBEDDING_MAX_CONCURRENCY = 3  # how many batches in flight at once
+EMBEDDING_MAX_CONCURRENCY = 3
 
 
 def get_embeddings_client() -> GoogleGenerativeAIEmbeddings:
@@ -45,6 +45,7 @@ def build_job_embedding_text(job: Job) -> str:
         locations=job.locations,
         skills=job.required_skills,
         description=getattr(job.description, "cleaned_text", None),
+        company_summary=job.company_summary,
     )
     return "\n".join(f"{k}:{v}" for k, v in doc.model_dump(exclude_none=True).items())
 

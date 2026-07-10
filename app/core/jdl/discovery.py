@@ -43,9 +43,11 @@ async def run_discovery(
     page_cap: int | None = None,
     unconfirmed_limit: int = 2,
     client: JobDataLakeClient | None = None,
+    seen_source_job_ids: set[str] | None = None,
 ) -> DiscoveryResult:
     result = DiscoveryResult()
-    seen_source_job_ids: set[str] = set()
+    if seen_source_job_ids is None:
+        seen_source_job_ids = set()
     seen_companies: set[str] = set()
 
     async def process_stream(jdl_client) -> None:
