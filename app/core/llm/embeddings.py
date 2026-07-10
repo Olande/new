@@ -3,22 +3,16 @@ import hashlib
 from datetime import UTC, datetime, timedelta
 from itertools import batched
 
-from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential_jitter,
-)
 
 from app.core.config.settings import settings
 from app.core.db.models.embedding import Embedding, EntityType
 from app.core.db.models.job import Job
 from app.core.jdl.schemas import JobEmbeddingDocument
+from app.core.retry_config import EMBEDDING_RETRY, with_retry
 
 EMBEDDING_TEXT_VERSION = 1
 EMBEDDING_BATCH_SIZE = 10
@@ -108,12 +102,7 @@ async def embed_texts_in_batches(
     batches = list(batched(texts, batch_size, strict=False))
     semaphore = asyncio.Semaphore(max_concurrency)
 
-    @retry(
-        retry=retry_if_exception_type((ResourceExhausted, ServiceUnavailable)),
-        wait=wait_exponential_jitter(initial=1, max=30),
-        stop=stop_after_attempt(5),
-        reraise=True,
-    )
+    @with_retry(EMBEDDING_RETRY)
     async def embed_one_batch(batch: tuple[str, ...]) -> list[list[float]]:
         async with semaphore:
             return await client.aembed_documents(list(batch))

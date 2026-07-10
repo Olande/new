@@ -6,15 +6,11 @@ from langchain_tavily import TavilySearch
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential_jitter,
-)
 
 from app.core.config.settings import settings
 from app.core.db.base import async_session
 from app.core.db.models.job import Job
+from app.core.retry_config import API_RETRY, with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +23,7 @@ def get_tavily(include_answer: bool = True, k: int = 5) -> TavilySearch:
     )
 
 
-@retry(
-    stop=stop_after_attempt(4),
-    wait=wait_exponential_jitter(initial=1, max=20),
-    reraise=True,
-)
+@with_retry(API_RETRY)
 async def fetch_company_summary(
     tavily: TavilySearch,
     company_name: str,

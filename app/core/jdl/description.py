@@ -7,14 +7,9 @@ from aiolimiter import AsyncLimiter
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential_jitter,
-)
 
 from app.core.db.models.job import Job, JobDescription, JobSource
+from app.core.retry_config import API_RETRY, with_retry
 
 JINA_PREFIX = "https://r.jina.ai/"
 
@@ -25,18 +20,7 @@ semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 limiter = AsyncLimiter(REQUESTS_PER_SECOND, 1)
 
 
-@retry(
-    retry=retry_if_exception_type(
-        (
-            httpx.HTTPStatusError,
-            httpx.ReadTimeout,
-            httpx.ConnectTimeout,
-        )
-    ),
-    stop=stop_after_attempt(5),
-    wait=wait_exponential_jitter(initial=2, max=60),
-    reraise=True,
-)
+@with_retry(API_RETRY)
 async def fetch_jina_content(
     client: httpx.AsyncClient,
     source_url: str,
