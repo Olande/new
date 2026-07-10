@@ -1,17 +1,13 @@
-import pytest
 import jwt
-from starlette.requests import Request
-from starlette.responses import JSONResponse
+import pytest
 from starlette.testclient import TestClient
 
 from app.mcp.mcp_context import (
     async_request_context,
-    clear_request_context,
     extract_context_from_jwt,
     get_current_tenant_id,
     get_current_user_id,
     request_context,
-    set_request_context,
 )
 from app.mcp.mcp_server import create_asgi_app
 
@@ -21,7 +17,7 @@ def test_jwt_extraction_and_context_vars():
     token_data = {"sub": "user-123", "tid": "tenant-456"}
     # Create an unsigned JWT token manually for extraction testing
     token = jwt.encode(token_data, "secret", algorithm="HS256")
-    
+
     extracted = extract_context_from_jwt(token)
     assert extracted.get("user_id") == "user-123"
     assert extracted.get("tenant_id") == "tenant-456"
@@ -42,32 +38,39 @@ async def test_async_context_isolation():
     async with async_request_context(user_id="async-user", tenant_id="async-tenant"):
         assert get_current_user_id() == "async-user"
         assert get_current_tenant_id() == "async-tenant"
-    
+
     assert get_current_user_id() is None
 
 
 def test_tenant_middleware_context_propagation():
     # Build the ASGI app with middleware
     app = create_asgi_app()
-    
+
     # We will test using Starlette TestClient if it's a HTTP app
     client = TestClient(app)
-    
+
     # Let's verify that hitting the endpoint with auth header sets context
     # Create a JWT token
-    token = jwt.encode({"sub": "mid-user", "tid": "mid-tenant"}, "secret", algorithm="HS256")
-    
+    token = jwt.encode(
+        {"sub": "mid-user", "tid": "mid-tenant"}, "secret", algorithm="HS256"
+    )
+
     # Send a request with the Authorization header
     headers = {"Authorization": f"Bearer {token}"}
-    response = client.get("/tools", headers=headers)
-    
+    client.get("/tools", headers=headers)
+
     # The ASGI middleware runs and clears context after. Ensure it's cleared:
     assert get_current_user_id() is None
 
 
 @pytest.mark.asyncio
 async def test_exception_translation():
-    from app.mcp.exceptions import NotFoundError, UnauthorizedError, ValidationError, translate_mcp_exceptions
+    from app.mcp.exceptions import (
+        NotFoundError,
+        UnauthorizedError,
+        ValidationError,
+        translate_mcp_exceptions,
+    )
 
     @translate_mcp_exceptions
     async def sample_func(exc_to_raise):
@@ -99,4 +102,3 @@ async def test_exception_translation():
     res = await sample_func(Exception("Database error"))
     assert res["error"] is True
     assert res["code"] == "internal_error"
-

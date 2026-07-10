@@ -8,6 +8,7 @@ from httpx_retries import Retry, RetryTransport
 
 from app.core.config.settings import settings
 from app.core.jdl.schemas import JobSearchCriteria
+from app.core.pagination import PaginationParams, paginate_api
 
 BASE_URL = "https://api.jobdatalake.com/v1"
 
@@ -83,35 +84,14 @@ class JobDataLakeClient:
     ) -> AsyncIterator[dict]:
         page_cap = page_cap or settings.discovery_page_cap
         search_params = build_search_params(criteria)
-        page = 1
-        yielded = 0
+        pagination = PaginationParams(
+            per_page=per_page, max_results=max_results, page_cap=page_cap
+        )
 
-        while True:
-            data = await self.search_jobs(per_page=per_page, page=page, **search_params)
-            jobs = data.get("jobs", [])
-            if not jobs:
-                break
-            found = data.get("found", 0)
+        async def _fetch_page(page: int, per_page: int) -> dict:
+            return await self.search_jobs(per_page=per_page, page=page, **search_params)
 
-            for job in jobs:
-                yield job
-                yielded += 1
-                if max_results and yielded >= max_results:
-                    return
-
-            # Short page means last page
-            if len(jobs) < per_page:
-                break
-
-            # All pages consumed
-            if page * per_page >= found:
-                break
-
-            # Page cap
-            if page >= page_cap:
-                break
-
-            page += 1
+        return paginate_api(_fetch_page, lambda d: d.get("jobs", []), pagination)
 
     async def get_job_by_id(self, external_id: str) -> dict | None:
         """Fetch a single job from the JDL API by its external ID.
