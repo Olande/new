@@ -1,3 +1,15 @@
+"""Search execution layer for the evaluation harness.
+
+Public symbols safe to import at module level (no DB connection required):
+  - ``RETRIEVAL_DATASET``       — LangSmith dataset name
+  - ``SearchParams``            — frozen dataclass of retrieval knobs
+  - ``DEFAULT_SEARCH_PARAMS``   — production defaults
+
+Functions that open a DB session are deferred-imported internally so that
+importing this module does not require ``DATABASE_URL`` to be set.  This
+keeps unit tests free of infrastructure dependencies.
+"""
+
 import textwrap
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -6,18 +18,23 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
-from app.core.db.base import async_session
-from app.core.db.models.job import JobDescription
-from app.core.jdl.schemas import JobSearchResult
-from app.core.llm.embeddings import get_embeddings_client
-from app.retrieval.hybrid_search import search_jobs
+from app.evaluation.constants import MATCHING_STYLES, NO_MATCH_STYLE
+
+# Re-export so callers don't need to import from constants directly
+__all__ = [
+    "DEFAULT_SEARCH_PARAMS",
+    "MATCHING_STYLES",
+    "NO_MATCH_STYLE",
+    "RETRIEVAL_DATASET",
+    "SearchParams",
+    "precompute_query_embeddings",
+    "retrieval_target",
+    "run_search",
+    "search_jobs_with_embedding",
+]
 
 # LangSmith dataset produced by scripts/seed_eval_datasets.py
 RETRIEVAL_DATASET = "careerpilot-matching-eval-v2"
-
-# Query styles stored in example metadata by the seeder
-MATCHING_STYLES = frozenset({"exact_terms", "paraphrase", "distractor"})
-NO_MATCH_STYLE = "no_match"
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +52,11 @@ class SearchParams:
 
 # Align with app.retrieval.hybrid_search.search_jobs defaults
 DEFAULT_SEARCH_PARAMS = SearchParams()
+
+
+# ---------------------------------------------------------------------------
+# DB-touching functions — import heavy infra lazily inside each function
+# ---------------------------------------------------------------------------
 
 
 async def search_jobs_with_embedding(
@@ -71,11 +93,18 @@ async def run_search(
     query_embedding: list[float] | None = None,
     include_snippets: bool = False,
 ) -> list[dict[str, Any]]:
-    """
-    Execute hybrid search and return serializable ranked hits.
+    """Execute hybrid search and return serializable ranked hits.
 
     When ``query_embedding`` is provided, skips the embed API call.
+    DB and model imports are deferred so this module is importable without
+    ``DATABASE_URL`` being set.
     """
+    # Deferred imports — only needed at runtime, not at import time
+    from app.core.db.base import async_session  # noqa: PLC0415
+    from app.core.db.models.job import JobDescription  # noqa: PLC0415
+    from app.core.jdl.schemas import JobSearchResult  # noqa: PLC0415
+    from app.retrieval.hybrid_search import search_jobs  # noqa: PLC0415
+
     async with async_session() as session:
         if query_embedding is not None:
             rows = await search_jobs_with_embedding(
@@ -117,6 +146,11 @@ async def run_search(
     return ranked
 
 
+# ---------------------------------------------------------------------------
+# Embedding helpers
+# ---------------------------------------------------------------------------
+
+
 def _is_rate_limited(exc: BaseException) -> bool:
     return "429" in str(exc)
 
@@ -132,7 +166,9 @@ async def _embed_query(client: Any, query: str) -> list[float]:
 
 
 async def precompute_query_embeddings(queries: list[str]) -> dict[str, list[float]]:
-    """Embed unique query strings once (for grid search / multi-param runs)."""
+    """Embed unique query strings once (for optimization / multi-param runs)."""
+    from app.core.llm.embeddings import get_embeddings_client  # noqa: PLC0415
+
     client = get_embeddings_client()
     unique = list(dict.fromkeys(queries))
     embeddings: dict[str, list[float]] = {}

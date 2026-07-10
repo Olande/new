@@ -1,18 +1,36 @@
-import argparse
+"""Offline IR evaluation CLI for CareerPilot hybrid search.
+
+Usage:
+  # Single-run evaluation with production defaults
+  python -m app.evaluation.run_local
+
+  # Single-run with custom params
+  python -m app.evaluation.run_local --bm25 0.2 --vector 0.8 --threshold 0.4
+
+  # Optuna hyperparameter optimization (replaces manual grid search)
+  python -m app.evaluation.run_local optimize --n-trials 100
+
+  # Per-query breakdown
+  python -m app.evaluation.run_local --per-query
+
+  # JSON output
+  python -m app.evaluation.run_local --json
+"""
+
 import asyncio
 import json
-import logging
-import sys
+from typing import Annotated
 
 from dotenv import load_dotenv
 from langsmith import Client
 from loguru import logger
+from typer import Option, Typer
 
-from app.core.db.base import async_session
 from app.evaluation.metrics import (
     compute_metrics_by_style,
     expected_job_id_of,
     format_metrics,
+    per_query_metrics,
     query_style_of,
 )
 from app.evaluation.search import (
@@ -25,12 +43,28 @@ from app.evaluation.search import (
 
 _ = load_dotenv()
 
+app = Typer(
+    name="run_local",
+    help="Offline hybrid-search IR evaluation for CareerPilot.",
+    no_args_is_help=False,
+    add_completion=False,
+)
 
-async def collect_rankings(
+# ---------------------------------------------------------------------------
+# Internal async helpers (unchanged behaviour, thinner surface)
+# ---------------------------------------------------------------------------
+
+
+async def _collect_rankings(
     examples: list,
     query_embeddings: dict[str, list[float]],
     params: SearchParams,
 ) -> dict[str, dict[str, float]]:
+    """Run hybrid search for every example and return score-keyed rankings."""
+    from app.core.db.base import (
+        async_session,  # deferred: needs DATABASE_URL at runtime
+    )
+
     rankings: dict[str, dict[str, float]] = {}
     async with async_session() as db:
         for example in examples:
@@ -48,62 +82,27 @@ async def collect_rankings(
     return rankings
 
 
-async def evaluate_once(
+async def _evaluate_once(
     examples: list,
     query_embeddings: dict[str, list[float]],
     params: SearchParams,
 ) -> dict:
-    rankings = await collect_rankings(examples, query_embeddings, params)
+    rankings = await _collect_rankings(examples, query_embeddings, params)
     report = compute_metrics_by_style(examples, rankings)
     report["params"] = params.as_dict()
     return report
 
 
-async def grid_search(
+def _print_per_query(
     examples: list,
-    query_embeddings: dict[str, list[float]],
-    thresholds: list[float] | None = None,
-) -> dict:
-    thresholds = thresholds or [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-    best_ndcg = -1.0
-    best_rr = -1.0
-    best_report: dict | None = None
-
-    for bm_w in [i / 10 for i in range(11)]:
-        vec_w = round(1.0 - bm_w, 2)
-        for threshold in thresholds:
-            params = SearchParams(
-                bm25_weight=bm_w,
-                vector_weight=vec_w,
-                cosine_distance_threshold=threshold,
-            )
-            report = await evaluate_once(examples, query_embeddings, params)
-            ndcg = report["overall"].get("nDCG@10", 0.0)
-            rr = report["overall"].get("RR", 0.0)
-            if ndcg > best_ndcg or (ndcg == best_ndcg and rr > best_rr):
-                best_ndcg = ndcg
-                best_rr = rr
-                best_report = report
-                print(
-                    f"NEW BEST: bm25={bm_w:.2f}, vector={vec_w:.2f}, "
-                    f"threshold={threshold:.2f} -> "
-                    f"nDCG@10={ndcg:.4f}, RR={rr:.4f}"
-                )
-
-    assert best_report is not None
-    return best_report
-
-
-def print_per_query(examples: list, rankings: dict[str, dict[str, float]]) -> None:
-    from app.evaluation.metrics import per_query_metrics
-
+    rankings: dict[str, dict[str, float]],
+) -> None:
     print("\n--- per-query ---")
     for example in examples:
         qid = str(example.id)
         style = query_style_of(example)
         expected = expected_job_id_of(example)
         ranking = rankings.get(qid, {})
-        # preserve score order
         ordered = [
             doc_id
             for doc_id, _ in sorted(ranking.items(), key=lambda kv: kv[1], reverse=True)
@@ -112,110 +111,136 @@ def print_per_query(examples: list, rankings: dict[str, dict[str, float]]) -> No
         if expected is None:
             print(f"[{style}] no_match  hits={len(ordered)}  q={query!r}")
             continue
-        metrics = per_query_metrics(qid, expected, ordered) or {}
+        m = per_query_metrics(qid, expected, ordered) or {}
         rank = ordered.index(expected) + 1 if expected in ordered else None
         print(
-            f"[{style}] rank={rank!s:>4}  nDCG@10={metrics.get('nDCG@10', 0):.3f}  "
-            f"RR={metrics.get('RR', 0):.3f}  q={query!r}"
+            f"[{style}] rank={rank!s:>4}  nDCG@10={m.get('nDCG@10', 0):.3f}  "
+            f"RR={m.get('RR', 0):.3f}  q={query!r}"
         )
 
 
-async def async_main(args: argparse.Namespace) -> int:
-    print(f"Fetching examples from LangSmith dataset '{RETRIEVAL_DATASET}'...")
+def _load_examples() -> list:
     client = Client()
+    print(f"Fetching examples from LangSmith dataset '{RETRIEVAL_DATASET}'...")
     examples = list(client.list_examples(dataset_name=RETRIEVAL_DATASET))
     if not examples:
-        print(f"No examples found in {RETRIEVAL_DATASET}.", file=sys.stderr)
-        return 1
+        raise SystemExit(f"No examples found in dataset '{RETRIEVAL_DATASET}'.")
+    print(f"Loaded {len(examples)} examples.")
+    return examples
 
-    print(f"Loaded {len(examples)} examples. Pre-computing query embeddings...")
-    queries = [ex.inputs["query"] for ex in examples]
-    query_embeddings = await precompute_query_embeddings(queries)
 
-    if args.grid:
-        print("Starting grid search over hyper-parameters...")
-        report = await grid_search(examples, query_embeddings)
-        print("\n--- OPTIMAL HYPER-PARAMETERS ---")
-    else:
-        params = SearchParams(
-            bm25_weight=args.bm25,
-            vector_weight=args.vector,
-            cosine_distance_threshold=args.threshold,
-            result_limit=args.limit,
-        )
+# ---------------------------------------------------------------------------
+# Typer commands
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def evaluate(
+    bm25: Annotated[
+        float,
+        Option("--bm25", min=0.0, max=1.0, help="BM25 / lexical weight."),
+    ] = DEFAULT_SEARCH_PARAMS.bm25_weight,
+    vector: Annotated[
+        float,
+        Option("--vector", min=0.0, max=1.0, help="Vector semantic weight."),
+    ] = DEFAULT_SEARCH_PARAMS.vector_weight,
+    threshold: Annotated[
+        float,
+        Option("--threshold", min=0.0, max=1.0, help="Cosine distance threshold."),
+    ] = DEFAULT_SEARCH_PARAMS.cosine_distance_threshold,
+    limit: Annotated[
+        int,
+        Option("--limit", min=1, help="Maximum candidates to return."),
+    ] = DEFAULT_SEARCH_PARAMS.result_limit,
+    per_query: Annotated[
+        bool,
+        Option("--per-query/--no-per-query", help="Print per-query rank / metrics."),
+    ] = False,
+    as_json: Annotated[
+        bool,
+        Option("--json/--no-json", help="Dump full metrics report as JSON."),
+    ] = False,
+) -> None:
+    """Run a single offline evaluation with the given search parameters."""
+    params = SearchParams(
+        bm25_weight=bm25,
+        vector_weight=vector,
+        cosine_distance_threshold=threshold,
+        result_limit=limit,
+    )
+
+    async def _run() -> None:
+        examples = _load_examples()
+        queries = [ex.inputs["query"] for ex in examples]
+        print("Pre-computing query embeddings...")
+        embeddings = await precompute_query_embeddings(queries)
         print(f"Evaluating with {params.as_dict()} ...")
-        report = await evaluate_once(examples, query_embeddings, params)
+        report = await _evaluate_once(examples, embeddings, params)
+        print(format_metrics(report))
+        print(f"\nparams: {json.dumps(report.get('params', {}), indent=2)}")
+        if per_query:
+            rankings = await _collect_rankings(examples, embeddings, params)
+            _print_per_query(examples, rankings)
+        if as_json:
+            print(json.dumps(report, indent=2, default=str))
 
-    print(format_metrics(report))
-    print(f"\nparams: {json.dumps(report.get('params', {}), indent=2)}")
+    asyncio.run(_run())
 
-    if args.per_query and not args.grid:
+
+@app.command()
+def optimize(
+    n_trials: Annotated[
+        int,
+        Option("--n-trials", min=1, help="Number of Optuna trials."),
+    ] = 100,
+    limit: Annotated[
+        int,
+        Option("--limit", min=1, help="Maximum candidates per search call."),
+    ] = DEFAULT_SEARCH_PARAMS.result_limit,
+) -> None:
+    """Find optimal retrieval hyperparameters via Optuna (TPE sampler).
+
+    Replaces the manual nested-loop grid search with a principled
+    hyperparameter optimisation study that requires far fewer evaluations
+    to locate high-quality parameter combinations.
+    """
+    import optuna
+
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+
+    async def _objective_async(trial: optuna.Trial) -> float:
+        bm25_w = trial.suggest_float("bm25_weight", 0.0, 1.0)
+        vec_w = round(1.0 - bm25_w, 4)
+        thr = trial.suggest_float("cosine_distance_threshold", 0.3, 0.9)
         params = SearchParams(
-            bm25_weight=args.bm25,
-            vector_weight=args.vector,
-            cosine_distance_threshold=args.threshold,
-            result_limit=args.limit,
+            bm25_weight=bm25_w,
+            vector_weight=vec_w,
+            cosine_distance_threshold=thr,
+            result_limit=limit,
         )
-        rankings = await collect_rankings(examples, query_embeddings, params)
-        print_per_query(examples, rankings)
+        examples = _load_examples()
+        queries = [ex.inputs["query"] for ex in examples]
+        embeddings = await precompute_query_embeddings(queries)
+        report = await _evaluate_once(examples, embeddings, params)
+        return float(report["overall"].get("nDCG@10", 0.0))
 
-    if args.json:
-        # Make JSON-serializable copy
-        print(json.dumps(report, indent=2, default=str))
+    def objective(trial: optuna.Trial) -> float:
+        return asyncio.run(_objective_async(trial))
 
-    return 0
+    study = optuna.create_study(direction="maximize")
+    study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
 
-
-def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        description="Offline hybrid-search IR evaluation for CareerPilot"
-    )
-    p.add_argument(
-        "--bm25",
-        type=float,
-        default=DEFAULT_SEARCH_PARAMS.bm25_weight,
-        help="BM25 / lexical weight (default: production 0.1)",
-    )
-    p.add_argument(
-        "--vector",
-        type=float,
-        default=DEFAULT_SEARCH_PARAMS.vector_weight,
-        help="Vector weight (default: production 0.9)",
-    )
-    p.add_argument(
-        "--threshold",
-        type=float,
-        default=DEFAULT_SEARCH_PARAMS.cosine_distance_threshold,
-        help="Cosine distance threshold (default: production 0.5)",
-    )
-    p.add_argument(
-        "--limit",
-        type=int,
-        default=DEFAULT_SEARCH_PARAMS.result_limit,
-        help="Result limit k (default: 20)",
-    )
-    p.add_argument(
-        "--grid",
-        action="store_true",
-        help="Grid-search weights (sum to 1) × thresholds; print best by nDCG@10",
-    )
-    p.add_argument(
-        "--per-query",
-        action="store_true",
-        help="Print per-query rank / metrics (ignored with --grid)",
-    )
-    p.add_argument(
-        "--json",
-        action="store_true",
-        help="Also dump the full metrics report as JSON",
-    )
-    return p
+    best = study.best_params
+    best_val = study.best_value
+    print("\n--- OPTIMAL HYPER-PARAMETERS ---")
+    print(f"  bm25_weight:               {best['bm25_weight']:.4f}")
+    print(f"  vector_weight:             {round(1.0 - best['bm25_weight'], 4):.4f}")
+    print(f"  cosine_distance_threshold: {best['cosine_distance_threshold']:.4f}")
+    print(f"  Best nDCG@10:              {best_val:.4f}")
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.WARNING)
-    args = build_parser().parse_args()
-    raise SystemExit(asyncio.run(async_main(args)))
+    app()
 
 
 if __name__ == "__main__":

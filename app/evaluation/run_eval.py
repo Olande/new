@@ -1,3 +1,14 @@
+"""LangSmith-based retrieval evaluation runner with regression gate.
+
+Entry point: ``python -m app.evaluation.run_eval``
+
+Flow:
+  1. Run ``aevaluate`` against the LangSmith dataset using the production
+     default ``SearchParams``.
+  2. Compare per-metric averages against the most recent prior experiment.
+  3. Exit with code 1 if any metric drops beyond its configured threshold.
+"""
+
 import asyncio
 import sys
 from statistics import mean
@@ -20,80 +31,96 @@ from app.evaluation.search import (
 
 _ = load_dotenv()
 
-REGRESSION_THRESHOLDS = {
+# Metric key → acceptable relative-drop threshold (5 % by default)
+REGRESSION_THRESHOLDS: dict[str, float] = {
     "ndcg_at_10": NDCG_REGRESSION_THRESHOLD,
     "mrr": MRR_REGRESSION_THRESHOLD,
 }
 
 
-def get_feedback_avg(client: Client, project_name: str, metric_name: str) -> float:
-    try:
-        runs = list(client.list_runs(project_name=project_name))
-        if not runs:
-            return 0.0
-        feedbacks = client.list_feedback(run_ids=[run.id for run in runs])
-        scores = [
-            float(fb.score)
-            for fb in feedbacks
-            if fb.key == metric_name and fb.score is not None
-        ]
-        return mean(scores) if scores else 0.0
-    except Exception as e:
-        logger.warning(f"Error calculating feedback average for {project_name}: {e}")
-        return 0.0
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 
 def relative_drop(prior: float, current: float) -> float | None:
+    """Return the relative drop from *prior* to *current*, or None if undefined."""
     if prior <= 0:
         return None
     return (prior - current) / prior
 
 
+def _feedback_avg(client: Client, project_name: str, metric_name: str) -> float:
+    """Fetch all feedback for a project and return the mean score for *metric_name*."""
+    try:
+        run_ids = [r.id for r in client.list_runs(project_name=project_name)]
+        if not run_ids:
+            return 0.0
+        scores = [
+            float(fb.score)
+            for fb in client.list_feedback(run_ids=run_ids)
+            if fb.key == metric_name and fb.score is not None
+        ]
+        return mean(scores) if scores else 0.0
+    except Exception as exc:
+        logger.warning("Error fetching feedback for {}: {}", project_name, exc)
+        return 0.0
+
+
 def check_retrieval_regression(client: Client, current_project_name: str) -> bool:
+    """Return True if any metric regresses beyond its configured threshold."""
     dataset = next(client.list_datasets(dataset_name=RETRIEVAL_DATASET), None)
     if dataset is None:
-        logger.info("No dataset found, skipping regression check.")
+        logger.info("No dataset found — skipping regression check.")
         return False
 
+    # Most-recent first; current project is at index 0 after sorting.
     projects = sorted(
         client.list_projects(reference_dataset_id=dataset.id),
         key=lambda p: p.start_time or p.created_at,
         reverse=True,
     )
-    projects_by_name = {p.name: p for p in projects}
+    names = {p.name: p for p in projects}
 
-    current_project = projects_by_name.get(current_project_name)
-    if current_project is None:
+    if current_project_name not in names:
         logger.warning(
-            f"Current project {current_project_name!r} not found among experiments, "
-            "skipping regression check."
+            "Current project {!r} not found among experiments — skipping.",
+            current_project_name,
         )
         return False
 
-    prior_project = next((p for p in projects if p.name != current_project_name), None)
-    if prior_project is None:
+    prior = next((p for p in projects if p.name != current_project_name), None)
+    if prior is None:
         logger.info("No prior experiment to compare against.")
         return False
 
     has_regression = False
     for metric_name, threshold in REGRESSION_THRESHOLDS.items():
-        current_score = get_feedback_avg(client, current_project.name, metric_name)
-        prior_score = get_feedback_avg(client, prior_project.name, metric_name)
-
+        current_score = _feedback_avg(client, current_project_name, metric_name)
+        prior_score = _feedback_avg(client, prior.name, metric_name)
         logger.info(
-            f"Current {metric_name}: {current_score:.4f}, "
-            f"Prior {metric_name}: {prior_score:.4f}"
+            "Current {}: {:.4f}  Prior {}: {:.4f}",
+            metric_name,
+            current_score,
+            metric_name,
+            prior_score,
         )
-
         drop = relative_drop(prior_score, current_score)
         if drop is not None and drop > threshold:
             logger.error(
-                f"Regression detected in {metric_name}! Dropped by {drop * 100:.1f}% "
-                f"(> {threshold * 100:.1f}%)"
+                "Regression in {}! Drop {:.1f}% > threshold {:.1f}%",
+                metric_name,
+                drop * 100,
+                threshold * 100,
             )
             has_regression = True
 
     return has_regression
+
+
+# ---------------------------------------------------------------------------
+# Main evaluation flow
+# ---------------------------------------------------------------------------
 
 
 async def run_evaluations() -> None:
@@ -112,7 +139,7 @@ async def run_evaluations() -> None:
     async def target(inputs: dict) -> dict:
         return await retrieval_target(inputs, params=params)
 
-    retrieval_results = await aevaluate(
+    results = await aevaluate(
         target,
         data=RETRIEVAL_DATASET,
         evaluators=RETRIEVAL_EVALUATORS,
@@ -120,16 +147,14 @@ async def run_evaluations() -> None:
         metadata={"search_params": params.as_dict(), "dataset": RETRIEVAL_DATASET},
     )
 
-    has_error = False
+    has_regression = False
     try:
-        has_error = check_retrieval_regression(
-            client, retrieval_results.experiment_name
-        )
-    except Exception as e:
-        logger.warning(f"Error comparing retrieval metrics: {e}")
+        has_regression = check_retrieval_regression(client, results.experiment_name)
+    except Exception as exc:
+        logger.warning("Error comparing retrieval metrics: {}", exc)
 
     logger.info("Evaluations completed.")
-    if has_error:
+    if has_regression:
         sys.exit(1)
 
 
