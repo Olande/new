@@ -10,8 +10,9 @@ from mcp.server.fastmcp import FastMCP
 
 from app.core.config.settings import settings as app_settings
 from app.core.jdl.client import JobDataLakeClient
-from app.mcp.di import db_session_scope, require_user
+from app.mcp.di import require_user
 from app.mcp.exceptions import translate_mcp_exceptions
+from app.mcp.factory import with_service
 from app.mcp.mcp_context import (
     clear_request_context,
     extract_context_from_jwt,
@@ -64,18 +65,16 @@ async def search_jobs_tool(
     query: str, limit: int = 10, cosine_threshold: float = 0.5
 ) -> dict[str, Any]:
     inp = SearchJobsInput(query=query, limit=limit, cosine_threshold=cosine_threshold)
-    async with db_session_scope() as session:
-        job_repo = JobRepository(session)
-        fallback = _build_fallback_service(session)
-        job_service = JobService(
-            job_repo, fallback_service=fallback, settings=app_settings
-        )
-        res = await job_service.search_jobs(
-            query=inp.query,
-            limit=inp.limit,
-            cosine_threshold=inp.cosine_threshold,
-        )
-        return res.model_dump()
+    return await with_service(
+        lambda s: JobService(
+            JobRepository(s),
+            fallback_service=_build_fallback_service(s),
+            settings=app_settings,
+        ),
+        lambda svc: svc.search_jobs(
+            query=inp.query, limit=inp.limit, cosine_threshold=inp.cosine_threshold
+        ).model_dump(),
+    )
 
 
 @mcp.tool(
@@ -84,14 +83,14 @@ async def search_jobs_tool(
 @translate_mcp_exceptions
 async def get_job_tool(job_id: str) -> dict[str, Any]:
     inp = GetJobInput(job_id=uuid.UUID(job_id))
-    async with db_session_scope() as session:
-        job_repo = JobRepository(session)
-        fallback = _build_fallback_service(session)
-        job_service = JobService(
-            job_repo, fallback_service=fallback, settings=app_settings
-        )
-        res = await job_service.get_job(inp.job_id)
-        return res.model_dump()
+    return await with_service(
+        lambda s: JobService(
+            JobRepository(s),
+            fallback_service=_build_fallback_service(s),
+            settings=app_settings,
+        ),
+        lambda svc: svc.get_job(inp.job_id).model_dump(),
+    )
 
 
 @mcp.tool(
@@ -100,12 +99,10 @@ async def get_job_tool(job_id: str) -> dict[str, Any]:
 @translate_mcp_exceptions
 async def get_my_profile_tool() -> dict[str, Any]:
     user = require_user()
-    async with db_session_scope() as session:
-        user_repo = UserRepository(session)
-        memory_repo = CareerMemoryRepository(session)
-        profile_service = ProfileService(user_repo, memory_repo)
-        res = await profile_service.get_profile(user)
-        return res.model_dump()
+    return await with_service(
+        lambda s: ProfileService(UserRepository(s), CareerMemoryRepository(s)),
+        lambda svc: svc.get_profile(user).model_dump(),
+    )
 
 
 @mcp.tool(
@@ -125,18 +122,16 @@ async def create_application_draft_tool(
         notes=notes,
     )
     user = require_user()
-    async with db_session_scope() as session:
-        job_repo = JobRepository(session)
-        app_repo = ApplicationRepository(session)
-        app_service = ApplicationService(app_repo, job_repo)
-        res = await app_service.create_draft(
+    return await with_service(
+        lambda s: ApplicationService(ApplicationRepository(s), JobRepository(s)),
+        lambda svc: svc.create_draft(
             user=user,
             job_id=inp.job_id,
             resume_draft=inp.resume_draft,
             cover_letter_draft=inp.cover_letter_draft,
             notes=inp.notes,
-        )
-        return res.model_dump()
+        ).model_dump(),
+    )
 
 
 @mcp.tool(
@@ -151,17 +146,16 @@ async def submit_application_tool(
         application_id=uuid.UUID(application_id) if application_id else None,
     )
     user = require_user()
-    async with db_session_scope() as session:
-        job_repo = JobRepository(session)
-        app_repo = ApplicationRepository(session)
-        task_repo = AgentTaskRepository(session)
-        submission_service = SubmissionService(task_repo, app_repo, job_repo)
-        res = await submission_service.submit_application(
+    return await with_service(
+        lambda s: SubmissionService(
+            AgentTaskRepository(s), ApplicationRepository(s), JobRepository(s)
+        ),
+        lambda svc: svc.submit_application(
             user=user,
             job_id=inp.job_id,
             application_id=inp.application_id,
-        )
-        return res.model_dump()
+        ).model_dump(),
+    )
 
 
 @mcp.tool(
@@ -171,17 +165,16 @@ async def submit_application_tool(
 async def confirm_submission_tool(task_id: str, approved: bool) -> dict[str, Any]:
     inp = ConfirmSubmissionInput(task_id=uuid.UUID(task_id), approved=approved)
     user = require_user()
-    async with db_session_scope() as session:
-        job_repo = JobRepository(session)
-        app_repo = ApplicationRepository(session)
-        task_repo = AgentTaskRepository(session)
-        submission_service = SubmissionService(task_repo, app_repo, job_repo)
-        res = await submission_service.confirm_submission(
+    return await with_service(
+        lambda s: SubmissionService(
+            AgentTaskRepository(s), ApplicationRepository(s), JobRepository(s)
+        ),
+        lambda svc: svc.confirm_submission(
             user=user,
             task_id=inp.task_id,
             approved=inp.approved,
-        )
-        return res.model_dump()
+        ).model_dump(),
+    )
 
 
 def create_asgi_app():
