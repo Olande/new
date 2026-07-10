@@ -1,18 +1,4 @@
-"""IR metric computation for the CareerPilot retrieval evaluation harness.
-
-Metrics are computed via ``ir-measures``.  ``no_match`` examples (no relevant
-golden job) are excluded from ranked-metric aggregates (nDCG / RR / Recall)
-and reported separately.
-
-Public surface used by both ``run_local.py`` (offline) and ``run_eval.py``
-(LangSmith evaluators):
-
-  - ``compute_aggregate_metrics`` — aggregate IR metrics from qrels + run dicts
-  - ``compute_metrics_by_style``  — per-style breakdown
-  - ``per_query_metrics``          — single-query metrics (LangSmith evaluators)
-  - ``format_metrics``             — pretty-print a style-breakdown report
-  - ``RETRIEVAL_EVALUATORS``       — list of LangSmith evaluator callables
-"""
+"""IR metric computation for the CareerPilot retrieval evaluation harness."""
 
 from collections import defaultdict
 from functools import cache, partial
@@ -25,15 +11,10 @@ from loguru import logger
 
 from app.evaluation.constants import MATCHING_STYLES, NO_MATCH_STYLE
 
-# ---------------------------------------------------------------------------
-# Regression thresholds (relative drop before a run is flagged)
-# ---------------------------------------------------------------------------
 NDCG_REGRESSION_THRESHOLD: float = 0.05
 MRR_REGRESSION_THRESHOLD: float = 0.05
 
-# ---------------------------------------------------------------------------
-# Measure definitions
-# ---------------------------------------------------------------------------
+
 MEASURES = [nDCG @ 10, nDCG @ 20, RR, R @ 10, R @ 20]
 
 MEASURE_KEYS: dict = {
@@ -47,9 +28,6 @@ MEASURE_KEYS: dict = {
 METRIC_ORDER: tuple[str, ...] = ("nDCG@10", "nDCG@20", "RR", "Recall@10", "Recall@20")
 
 
-# ---------------------------------------------------------------------------
-# Example helpers
-# ---------------------------------------------------------------------------
 def query_style_of(example: Any) -> str:
     meta = getattr(example, "metadata", None) or {}
     if isinstance(meta, dict) and meta.get("query_style"):
@@ -78,9 +56,6 @@ def is_matching_example(example: Any) -> bool:
     return expected_job_id_of(example) is not None
 
 
-# ---------------------------------------------------------------------------
-# qrels / run construction
-# ---------------------------------------------------------------------------
 def ranked_ids_to_run(
     qid: str, ranked_job_ids: list[str]
 ) -> dict[str, dict[str, float]]:
@@ -109,6 +84,7 @@ def build_qrels_and_run_from_rankings(
     for example in examples:
         qid = str(example.id)
         if not is_matching_example(example):
+            logger.debug("Skipping qid={} style={}", qid[:8], query_style_of(example))
             skipped.append(qid)
             continue
 
@@ -125,12 +101,17 @@ def build_qrels_and_run_from_rankings(
                 for rank, job_id in enumerate(ranking)
             }
 
+        logger.debug(
+            "qid={} expected={!r} expected_in_run={} run_size={}",
+            qid[:8],
+            expected,
+            expected in run[qid],
+            len(run[qid]),
+        )
+
     return qrels, run, skipped
 
 
-# ---------------------------------------------------------------------------
-# Aggregate metric computation
-# ---------------------------------------------------------------------------
 def to_friendly(raw: dict) -> dict[str, float]:
     return {MEASURE_KEYS.get(m, str(m)): float(v or 0.0) for m, v in raw.items()}
 
@@ -143,6 +124,7 @@ def compute_aggregate_metrics(
     if not qrels:
         return dict.fromkeys(MEASURE_KEYS.values(), 0.0)
     measures = measures or MEASURES
+    logger.debug("compute_aggregate_metrics: n_qrels={} n_run={}", len(qrels), len(run))
     raw = ir_measures.calc_aggregate(measures, qrels, run)
     return to_friendly(raw)
 
@@ -205,16 +187,13 @@ def per_query_metrics(
     """Single-query metrics for LangSmith evaluators. Returns None for no_match."""
     if expected_job_id is None:
         return None
-    measures = measures or [nDCG @ 10, nDCG @ 20, RR, R @ 10]
+    measures = measures or [nDCG @ 10, nDCG @ 20, RR, R @ 10, R @ 20]
     qrels = {qid: {expected_job_id: 1}}
     run = ranked_ids_to_run(qid, ranked_job_ids)
     raw = ir_measures.calc_aggregate(measures, qrels, run)
     return to_friendly(raw)
 
 
-# ---------------------------------------------------------------------------
-# Formatting helpers
-# ---------------------------------------------------------------------------
 def fmt_scores(scores: dict, pad: str) -> list[str]:
     return [f"{pad}{key}: {scores[key]:.4f}" for key in METRIC_ORDER if key in scores]
 
@@ -245,9 +224,6 @@ def format_metrics(report: dict[str, Any], indent: int = 0) -> str:
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
-# LangSmith evaluator callables
-# ---------------------------------------------------------------------------
 def extract_ranked_job_ids(run: Run) -> list[str]:
     outputs = run.outputs or {}
     ranked_jobs = outputs.get("ranked_jobs") or []

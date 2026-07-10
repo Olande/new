@@ -1,13 +1,4 @@
-"""LangSmith-based retrieval evaluation runner with regression gate.
-
-Entry point: ``python -m app.evaluation.run_eval``
-
-Flow:
-  1. Run ``aevaluate`` against the LangSmith dataset using the production
-     default ``SearchParams``.
-  2. Compare per-metric averages against the most recent prior experiment.
-  3. Exit with code 1 if any metric drops beyond its configured threshold.
-"""
+"""LangSmith-based retrieval evaluation runner with regression gate."""
 
 import asyncio
 import sys
@@ -36,11 +27,6 @@ REGRESSION_THRESHOLDS: dict[str, float] = {
     "ndcg_at_10": NDCG_REGRESSION_THRESHOLD,
     "mrr": MRR_REGRESSION_THRESHOLD,
 }
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 
 def relative_drop(prior: float, current: float) -> float | None:
@@ -74,7 +60,7 @@ def check_retrieval_regression(client: Client, current_project_name: str) -> boo
         logger.info("No dataset found — skipping regression check.")
         return False
 
-    # Most-recent first; current project is at index 0 after sorting.
+    # Most-recent first, current project is at index 0 after sorting.
     projects = sorted(
         client.list_projects(reference_dataset_id=dataset.id),
         key=lambda p: p.start_time or p.created_at,
@@ -116,11 +102,6 @@ def check_retrieval_regression(client: Client, current_project_name: str) -> boo
             has_regression = True
 
     return has_regression
-
-
-# ---------------------------------------------------------------------------
-# Main evaluation flow
-# ---------------------------------------------------------------------------
 
 
 async def run_evaluations() -> None:

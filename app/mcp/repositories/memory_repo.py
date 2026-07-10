@@ -13,7 +13,9 @@ class CareerMemoryRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_memories_by_user_id(self, user_id: uuid.UUID) -> Sequence[CareerMemory]:
+    async def get_memories_by_user_id(
+        self, user_id: uuid.UUID
+    ) -> Sequence[CareerMemory]:
         """Queries all career memory rows matching a specific user UUID."""
         q = await self.session.execute(
             select(CareerMemory).where(CareerMemory.user_id == user_id)

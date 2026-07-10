@@ -57,6 +57,7 @@ class Job(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("NOW()"), nullable=False
     )
+    fallback_source: Mapped[str | None] = mapped_column(String, nullable=True)
 
     sources = relationship("JobSource", back_populates="job")
     description = relationship("JobDescription", back_populates="job", uselist=False)

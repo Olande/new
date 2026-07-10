@@ -22,7 +22,9 @@ class ApplicationRepository:
         await self.session.flush()
         return app_row
 
-    async def get_latest_for_user_and_job(self, user_id: uuid.UUID, job_id: uuid.UUID) -> Application | None:
+    async def get_latest_for_user_and_job(
+        self, user_id: uuid.UUID, job_id: uuid.UUID
+    ) -> Application | None:
         """Queries the latest application row matching a user and job ID."""
         q = await self.session.execute(
             select(Application)

@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     discovery_per_page: int = 1
     discovery_unconfirmed_limit: int = 3
 
+    # Fallback configuration
+    fallback_enabled: bool = True
+    fallback_min_result_threshold: int = 5  # supplement when DB hits < this
+    fallback_max_results: int = 20  # JDL API result cap per call
+
     langsmith_tracing: bool = False
     langsmith_api_key: str | None = None
     langsmith_project: str | None = None

@@ -112,3 +112,19 @@ class JobDataLakeClient:
                 break
 
             page += 1
+
+    async def get_job_by_id(self, external_id: str) -> dict | None:
+        """Fetch a single job from the JDL API by its external ID.
+
+        Returns the parsed JSON dict, or None if the job doesn't exist (404).
+        Raises httpx.HTTPError for other error status codes.
+        """
+        if not self.client:
+            raise RuntimeError("Client not initialized.")
+        url = f"{BASE_URL}/jobs/{external_id}"
+        async with self.limiter:
+            response = await self.client.get(url)
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return response.json()

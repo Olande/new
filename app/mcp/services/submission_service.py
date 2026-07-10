@@ -39,11 +39,17 @@ class SubmissionService:
         if application_id:
             app_obj = await self.app_repo.get_by_id(application_id)
             if not app_obj or str(app_obj.user_id) != str(user.user_id):
-                raise NotFoundError(f"Application draft {application_id} not found or not owned")
+                raise NotFoundError(
+                    f"Application draft {application_id} not found or not owned"
+                )
         else:
-            app_obj = await self.app_repo.get_latest_for_user_and_job(user.user_id, job_id)
+            app_obj = await self.app_repo.get_latest_for_user_and_job(
+                user.user_id, job_id
+            )
             if not app_obj:
-                app_obj = Application(user_id=user.user_id, job_id=job_id, status="draft")
+                app_obj = Application(
+                    user_id=user.user_id, job_id=job_id, status="draft"
+                )
                 await self.app_repo.create(app_obj)
 
         task = AgentTask(
@@ -85,7 +91,9 @@ class SubmissionService:
         if not task:
             raise NotFoundError(f"Task {task_id} not found")
 
-        if task.payload.get("user_id") and str(task.payload["user_id"]) != str(user.user_id):
+        if task.payload.get("user_id") and str(task.payload["user_id"]) != str(
+            user.user_id
+        ):
             raise UnauthorizedError("Cross-tenant blocked")
 
         if task.status != "pending":

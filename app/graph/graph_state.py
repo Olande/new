@@ -20,7 +20,9 @@ class JobScore(BaseModel):
 
 
 class GeneratedResponse(BaseModel):
-    insufficient_data: bool = Field(description="True if retrieved jobs lack info to answer.")
+    insufficient_data: bool = Field(
+        description="True if retrieved jobs lack info to answer."
+    )
     summary: str = Field(description="Natural language answer.")
     claims: list[JobClaim] = Field(default_factory=list)
 
@@ -35,7 +37,10 @@ class QAGraphState(BaseModel):
     """Transient thread state. Persistent memory lives in Postgres Store (career_memory -> Store migration)."""
 
     user_query: str
-    user_id: str | None = Field(default=None, description="Tenant-isolated identity, set by transport layer, never by LLM")
+    user_id: str | None = Field(
+        default=None,
+        description="Tenant-isolated identity, set by transport layer, never by LLM",
+    )
 
     extracted_criteria: JobSearchCriteria | None = None
 

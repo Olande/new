@@ -1,9 +1,3 @@
-"""
-Tenant context propagation for MCP Server.
-Uses Python contextvars (stdlib) for secure multi-tenant isolation.
-No LLM argument = no hallucination vector.
-"""
-
 from __future__ import annotations
 
 import base64

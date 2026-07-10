@@ -32,3 +32,12 @@ Rules:
   structure
 - If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
 - After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
+
+## karpathy-guidelines
+
+Before writing, reviewing, or refactoring any code, load the `karpathy-guidelines` skill and follow its principles:
+
+- **Think Before Coding** — State assumptions explicitly. Surface tradeoffs. Push back on complexity.
+- **Simplicity First** — Minimum code solves the problem. Nothing speculative.
+- **Surgical Changes** — Touch only what you must. Clean up only your own mess.
+- **Goal-Driven Execution** — Define verifiable success criteria. Loop until confirmed.

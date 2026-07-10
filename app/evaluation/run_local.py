@@ -1,21 +1,4 @@
-"""Offline IR evaluation CLI for CareerPilot hybrid search.
-
-Usage:
-  # Single-run evaluation with production defaults
-  python -m app.evaluation.run_local
-
-  # Single-run with custom params
-  python -m app.evaluation.run_local --bm25 0.2 --vector 0.8 --threshold 0.4
-
-  # Optuna hyperparameter optimization (replaces manual grid search)
-  python -m app.evaluation.run_local optimize --n-trials 100
-
-  # Per-query breakdown
-  python -m app.evaluation.run_local --per-query
-
-  # JSON output
-  python -m app.evaluation.run_local --json
-"""
+"""Offline IR evaluation CLI for CareerPilot hybrid search."""
 
 import asyncio
 import json
@@ -49,10 +32,6 @@ app = Typer(
     no_args_is_help=False,
     add_completion=False,
 )
-
-# ---------------------------------------------------------------------------
-# Internal async helpers (unchanged behaviour, thinner surface)
-# ---------------------------------------------------------------------------
 
 
 async def _collect_rankings(
@@ -129,11 +108,6 @@ def _load_examples() -> list:
     return examples
 
 
-# ---------------------------------------------------------------------------
-# Typer commands
-# ---------------------------------------------------------------------------
-
-
 @app.command()
 def evaluate(
     bm25: Annotated[
@@ -198,12 +172,7 @@ def optimize(
         Option("--limit", min=1, help="Maximum candidates per search call."),
     ] = DEFAULT_SEARCH_PARAMS.result_limit,
 ) -> None:
-    """Find optimal retrieval hyperparameters via Optuna (TPE sampler).
-
-    Replaces the manual nested-loop grid search with a principled
-    hyperparameter optimisation study that requires far fewer evaluations
-    to locate high-quality parameter combinations.
-    """
+    """Find optimal retrieval hyperparameters via Optuna (TPE sampler)."""
     import optuna
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
@@ -221,22 +190,45 @@ def optimize(
         examples = _load_examples()
         queries = [ex.inputs["query"] for ex in examples]
         embeddings = await precompute_query_embeddings(queries)
-        report = await _evaluate_once(examples, embeddings, params)
-        return float(report["overall"].get("nDCG@10", 0.0))
+
+        # Evaluate in 4 progressive chunks for early stopping
+        chunks = [examples[i::4] for i in range(4)]
+        running_ndcg: list[float] = []
+        for i, chunk in enumerate(chunks):
+            report = await _evaluate_once(chunk, embeddings, params)
+            ndcg = float(report["overall"].get("nDCG@10", 0.0))
+            running_ndcg.append(ndcg)
+            trial.report(sum(running_ndcg) / len(running_ndcg), step=i)
+            if trial.should_prune():
+                raise optuna.TrialPruned()
+
+        return sum(running_ndcg) / len(running_ndcg)
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
     def objective(trial: optuna.Trial) -> float:
-        return asyncio.run(_objective_async(trial))
+        return loop.run_until_complete(_objective_async(trial))
 
-    study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
+    try:
+        study = optuna.create_study(
+            direction="maximize",
+            sampler=optuna.samplers.TPESampler(),
+            pruner=optuna.pruners.HyperbandPruner(
+                min_resource=1, max_resource=4, reduction_factor=3
+            ),
+        )
+        study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
+    finally:
+        loop.close()
 
     best = study.best_params
     best_val = study.best_value
-    print("\n--- OPTIMAL HYPER-PARAMETERS ---")
-    print(f"  bm25_weight:               {best['bm25_weight']:.4f}")
-    print(f"  vector_weight:             {round(1.0 - best['bm25_weight'], 4):.4f}")
-    print(f"  cosine_distance_threshold: {best['cosine_distance_threshold']:.4f}")
-    print(f"  Best nDCG@10:              {best_val:.4f}")
+    print("OPTIMAL HYPER-PARAMETERS")
+    print(f"bm25_weight: {best['bm25_weight']:.4f}")
+    print(f"vector_weight: {round(1.0 - best['bm25_weight'], 4):.4f}")
+    print(f"cosine_distance_threshold: {best['cosine_distance_threshold']:.4f}")
+    print(f"Best nDCG@10: {best_val:.4f}")
 
 
 def main() -> None:

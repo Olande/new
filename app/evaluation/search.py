@@ -1,14 +1,4 @@
-"""Search execution layer for the evaluation harness.
-
-Public symbols safe to import at module level (no DB connection required):
-  - ``RETRIEVAL_DATASET``       — LangSmith dataset name
-  - ``SearchParams``            — frozen dataclass of retrieval knobs
-  - ``DEFAULT_SEARCH_PARAMS``   — production defaults
-
-Functions that open a DB session are deferred-imported internally so that
-importing this module does not require ``DATABASE_URL`` to be set.  This
-keeps unit tests free of infrastructure dependencies.
-"""
+"""Search execution layer for the evaluation harness."""
 
 import textwrap
 from dataclasses import asdict, dataclass
@@ -41,9 +31,9 @@ RETRIEVAL_DATASET = "careerpilot-matching-eval-v2"
 class SearchParams:
     """Hybrid search knobs used for both production defaults and eval sweeps."""
 
-    bm25_weight: float = 0.1
-    vector_weight: float = 0.9
-    cosine_distance_threshold: float = 0.5
+    bm25_weight: float = 0.2069
+    vector_weight: float = 0.7931
+    cosine_distance_threshold: float = 0.4513
     result_limit: int = 20
 
     def as_dict(self) -> dict:
@@ -54,9 +44,7 @@ class SearchParams:
 DEFAULT_SEARCH_PARAMS = SearchParams()
 
 
-# ---------------------------------------------------------------------------
 # DB-touching functions — import heavy infra lazily inside each function
-# ---------------------------------------------------------------------------
 
 
 async def search_jobs_with_embedding(
@@ -93,13 +81,8 @@ async def run_search(
     query_embedding: list[float] | None = None,
     include_snippets: bool = False,
 ) -> list[dict[str, Any]]:
-    """Execute hybrid search and return serializable ranked hits.
+    """Execute hybrid search and return serializable ranked hits."""
 
-    When ``query_embedding`` is provided, skips the embed API call.
-    DB and model imports are deferred so this module is importable without
-    ``DATABASE_URL`` being set.
-    """
-    # Deferred imports — only needed at runtime, not at import time
     from app.core.db.base import async_session  # noqa: PLC0415
     from app.core.db.models.job import JobDescription  # noqa: PLC0415
     from app.core.jdl.schemas import JobSearchResult  # noqa: PLC0415
@@ -144,11 +127,6 @@ async def run_search(
             )
         ranked.append(item)
     return ranked
-
-
-# ---------------------------------------------------------------------------
-# Embedding helpers
-# ---------------------------------------------------------------------------
 
 
 def _is_rate_limited(exc: BaseException) -> bool:

@@ -8,9 +8,9 @@ from app.core.llm.embeddings import get_embeddings_client
 async def search_jobs(
     db: AsyncSession,
     query_text: str,
-    cosine_distance_threshold: float = 0.5,
-    bm25_weight: float = 0.1,
-    vector_weight: float = 0.9,
+    cosine_distance_threshold: float = 0.4513,
+    bm25_weight: float = 0.2069,
+    vector_weight: float = 0.7931,
     result_limit: int = 20,
 ) -> list[JobSearchResult]:
     """
