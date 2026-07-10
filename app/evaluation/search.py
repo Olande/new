@@ -113,13 +113,13 @@ async def run_search(
 
     ranked: list[dict[str, Any]] = []
     for c in candidates:
-        item: dict[str, Any] = {
-            "id": str(c.id),
-            "title": c.title,
-            "company_name": c.company_name,
-            "required_skills": list(c.required_skills) if c.required_skills else [],
-            "score": float(c.rrf_score),
-        }
+        item = c.model_dump(
+            include={"id", "title", "company_name", "required_skills"},
+            mode="json",
+        )
+        item["id"] = str(item["id"])  # ensure string
+        item["score"] = float(c.rrf_score)
+        item["required_skills"] = item["required_skills"] or []
         if include_snippets:
             desc = descriptions.get(c.id, "") or ""
             item["description_snippet"] = (

@@ -30,6 +30,19 @@ class JobHit(BaseModel):
     score: float
     fallback_source: str | None = None  # "jdl_api" or None
 
+    @classmethod
+    def from_job(cls, job, score: float = 0.0) -> JobHit:
+        return cls(
+            id=str(job.id),
+            title=job.title,
+            company_name=job.company_name,
+            required_skills=list(job.required_skills or []),
+            remote_type=job.remote_type,
+            locations=list(job.locations or []),
+            score=score,
+            fallback_source=getattr(job, "fallback_source", None),
+        )
+
 
 class SearchJobsOutput(BaseModel):
     hits: list[JobHit]
@@ -53,6 +66,21 @@ class JobDetailOutput(BaseModel):
     employment_type: str | None = None
     seniority: list[str] = []
     fallback_source: str | None = None  # "jdl_api" or None
+
+    @classmethod
+    def from_job(cls, job, description: str = "") -> JobDetailOutput:
+        return cls(
+            id=str(job.id),
+            title=job.title,
+            company_name=job.company_name,
+            description=description,
+            required_skills=list(job.required_skills or []),
+            locations=list(job.locations or []),
+            remote_type=job.remote_type,
+            employment_type=job.employment_type,
+            seniority=list(job.seniority or []),
+            fallback_source=getattr(job, "fallback_source", None),
+        )
 
 
 class GetProfileOutput(BaseModel):
