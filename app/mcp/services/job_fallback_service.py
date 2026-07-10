@@ -26,8 +26,8 @@ from app.mcp.repositories.job_repo import JobRepository
 
 logger = logging.getLogger(__name__)
 
-# Module-level in-flight dedup map: query_key -> asyncio.Event
-_in_flight: dict[str, asyncio.Event] = {}
+# Module-level in-flight dedup map: query_key -> asyncio.Future
+_in_flight: dict[str, asyncio.Future] = {}
 _dedup_lock = asyncio.Lock()
 
 
@@ -77,30 +77,16 @@ class JobFallbackService:
         dropped_count = 0
         fallback_start = time.monotonic()
 
+        # In-flight dedup: use shared future
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
+        async with _dedup_lock:
+            if query_key in _in_flight:
+                logger.info("awaiting in-flight fallback for query=%s", query)
+                return await _in_flight[query_key]
+            _in_flight[query_key] = future
+
         try:
-            # In-flight dedup: guard with lock to prevent TOCTOU race
-            async with _dedup_lock:
-                if query_key in _in_flight:
-                    logger.info("awaiting in-flight fallback for query=%s", query)
-                    await _in_flight[query_key].wait()
-                    # Results now in DB — re-query and return
-                    final = await self.job_repo.search(
-                        query=query, limit=limit, cosine_threshold=0.5
-                    )
-                    hits = self._hits_from_raw(final)
-                    logger.info(
-                        "fallback reused in-flight query=%s db_hits=%d latency=%.2fs",
-                        query,
-                        len(hits),
-                        time.monotonic() - fallback_start,
-                    )
-                    return SearchJobsOutput(
-                        hits=hits, total=len(hits), fallback_used=True
-                    )
-
-                event = asyncio.Event()
-                _in_flight[query_key] = event
-
             try:
                 # Fetch from JDL API with a timeout to prevent hanging
                 try:
@@ -111,14 +97,20 @@ class JobFallbackService:
                 except TimeoutError:
                     logger.warning("JDL fallback timed out for query=%s", query)
                     hits = self._hits_from_raw(db_results)
-                    return SearchJobsOutput(hits=hits, total=len(hits))
+                    result = SearchJobsOutput(hits=hits, total=len(hits))
+                    if not future.done():
+                        future.set_result(result)
+                    return result
 
                 if not isinstance(api_jobs, list):
                     api_jobs = api_jobs.get("jobs", []) if api_jobs else []
 
                 if not api_jobs:
                     hits = self._hits_from_raw(db_results)
-                    return SearchJobsOutput(hits=hits, total=len(hits))
+                    result = SearchJobsOutput(hits=hits, total=len(hits))
+                    if not future.done():
+                        future.set_result(result)
+                    return result
 
                 # Cap results
                 api_jobs = api_jobs[: self.settings.fallback_max_results]
@@ -139,7 +131,6 @@ class JobFallbackService:
                         self._schedule_embeddings(upserted)
 
             finally:
-                event.set()
                 _in_flight.pop(query_key, None)
 
             # Step 3: Re-query DB (now populated with fallback results)
@@ -157,17 +148,23 @@ class JobFallbackService:
                 dropped_count,
                 fallback_elapsed,
             )
-            return SearchJobsOutput(
+            result = SearchJobsOutput(
                 hits=hits,
                 total=len(hits),
                 fallback_used=True,
                 dropped_count=dropped_count,
             )
+            if not future.done():
+                future.set_result(result)
+            return result
 
         except httpx.HTTPError as exc:
             logger.warning("JDL fallback failed: query=%s error=%s", query, exc)
             hits = self._hits_from_raw(db_results)
-            return SearchJobsOutput(hits=hits, total=len(hits))
+            result = SearchJobsOutput(hits=hits, total=len(hits))
+            if not future.done():
+                future.set_result(result)
+            return result
 
     async def get_job_with_fallback(self, job_id: UUID) -> JobDetailOutput | None:
         """Look up a single job by ID, falling back to JDL API if not in DB.
