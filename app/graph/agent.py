@@ -9,19 +9,23 @@ from psycopg_pool import AsyncConnectionPool
 
 from app.core.config.settings import settings
 from app.graph.graph_state import QAGraphState
-from app.graph.nodes import (
+from app.graph.query_nodes import (
     analyze_query,
-    compile_results,
-    execute_submission,
-    generate_draft,
-    heuristic_check,
     hybrid_search,
     intent_router,
+    route_to_scoring,
+)
+from app.graph.scoring_nodes import (
+    compile_results,
+    generate_draft,
+    heuristic_check,
     llm_critic,
+    score_candidate,
+)
+from app.graph.submission_nodes import (
+    execute_submission,
     prepare_submission,
     request_human_approval,
-    route_to_scoring,
-    score_candidate,
 )
 
 

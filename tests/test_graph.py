@@ -11,7 +11,7 @@ from app.graph.graph_state import (
     JobScore,
     QAGraphState,
 )
-from app.graph.nodes import (
+from app.graph.scoring_nodes import (
     MAX_HEURISTIC_ATTEMPTS,
     MAX_VERIFICATION_ATTEMPTS,
     compile_results,
@@ -133,7 +133,9 @@ async def test_llm_critic_valid_passes(monkeypatch):
     job = make_job(uuid.uuid4())
     state = make_state([JobClaim(text="ok", job_id=str(job.id))], [job])
 
-    monkeypatch.setattr("app.graph.nodes.get_frontier_model", lambda: FakeValidModel())
+    monkeypatch.setattr(
+        "app.graph.scoring_nodes.get_frontier_model", lambda: FakeValidModel()
+    )
 
     result = await llm_critic(state)
     assert result.goto == END
@@ -148,7 +150,7 @@ async def test_llm_critic_invalid_retries(monkeypatch):
     )
 
     monkeypatch.setattr(
-        "app.graph.nodes.get_frontier_model", lambda: FakeInvalidModel()
+        "app.graph.scoring_nodes.get_frontier_model", lambda: FakeInvalidModel()
     )
 
     result = await llm_critic(state)
@@ -167,7 +169,7 @@ async def test_llm_critic_exhausted_falls_back(monkeypatch):
     )
 
     monkeypatch.setattr(
-        "app.graph.nodes.get_frontier_model", lambda: FakeInvalidModel()
+        "app.graph.scoring_nodes.get_frontier_model", lambda: FakeInvalidModel()
     )
 
     result = await llm_critic(state)

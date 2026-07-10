@@ -6,7 +6,8 @@ from langgraph.types import Overwrite, Send
 
 from app.core.jdl.schemas import JobSearchCriteria, JobSearchResult
 from app.graph.graph_state import JobScore, QAGraphState
-from app.graph.nodes import DEFAULT_TOP_N, compile_results, route_to_scoring
+from app.graph.query_nodes import route_to_scoring
+from app.graph.scoring_nodes import DEFAULT_TOP_N, compile_results
 
 
 def make_job(job_id: uuid.UUID, title="Software Engineer") -> JobSearchResult:
@@ -84,10 +85,10 @@ async def test_score_candidate_success():
     mock_model = MagicMock()
     mock_model.ainvoke = AsyncMock(return_value=mock_score)
 
-    with patch("app.graph.nodes.get_fast_model") as mock_get_model:
+    with patch("app.graph.scoring_nodes.get_fast_model") as mock_get_model:
         mock_get_model.return_value.with_structured_output.return_value = mock_model
 
-        from app.graph.nodes import score_candidate
+        from app.graph.scoring_nodes import score_candidate
 
         result = await score_candidate(state)
 

@@ -5,7 +5,7 @@ from langgraph.graph import END
 
 from app.core.jdl.schemas import JobSearchResult
 from app.graph.graph_state import GeneratedResponse, JobClaim, QAGraphState
-from app.graph.nodes import MAX_HEURISTIC_ATTEMPTS, heuristic_check
+from app.graph.scoring_nodes import MAX_HEURISTIC_ATTEMPTS, heuristic_check
 
 
 def make_job(job_id: uuid.UUID) -> JobSearchResult:
