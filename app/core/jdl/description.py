@@ -1,13 +1,11 @@
-import asyncio
 import uuid
-from itertools import batched
 
 import httpx
-from aiolimiter import AsyncLimiter
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.batch import BatchProcessorConfig, process_in_batches
 from app.core.db.models.job import Job, JobDescription, JobSource
 from app.core.retry_config import API_RETRY, with_retry
 
@@ -15,9 +13,6 @@ JINA_PREFIX = "https://r.jina.ai/"
 
 MAX_CONCURRENT_REQUESTS = 3
 REQUESTS_PER_SECOND = 2
-
-semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
-limiter = AsyncLimiter(REQUESTS_PER_SECOND, 1)
 
 
 @with_retry(API_RETRY)
@@ -27,8 +22,7 @@ async def fetch_jina_content(
 ) -> str:
     jina_url = f"{JINA_PREFIX}{source_url}"
 
-    async with semaphore, limiter:
-        response = await client.get(jina_url)
+    response = await client.get(jina_url)
 
     if response.status_code == 429:
         logger.warning("Rate limited by Jina: %s", source_url)
@@ -75,42 +69,43 @@ async def populate_job_descriptions(
         timeout=60,
         follow_redirects=True,
     ) as client:
-        for batch in batched(rows, batch_size, strict=False):
-            tasks = [
-                fetch_jina_content(client, source_url) for job_id, source_url in batch
-            ]
+        batch_config = BatchProcessorConfig(
+            batch_size=batch_size,
+            max_concurrency=MAX_CONCURRENT_REQUESTS,
+            rate_per_second=REQUESTS_PER_SECOND,
+        )
+        responses = await process_in_batches(
+            items=list(rows),
+            processor=lambda row: fetch_jina_content(client, row.source_url),
+            config=batch_config,
+        )
 
-            responses = await asyncio.gather(
-                *tasks,
-                return_exceptions=True,
+        descriptions: list[JobDescription] = []
+
+        for (job_id, source_url), response in zip(rows, responses, strict=False):
+            if isinstance(response, Exception):
+                logger.warning(
+                    "Failed fetching job %s (%s): %s",
+                    job_id,
+                    source_url,
+                    response,
+                )
+                continue
+
+            descriptions.append(
+                JobDescription(
+                    job_id=job_id,
+                    cleaned_text=response,
+                )
             )
 
-            descriptions = []
+        if descriptions:
+            db.add_all(descriptions)
+            await db.commit()
 
-            for (job_id, source_url), response in zip(batch, responses, strict=False):
-                if isinstance(response, Exception):
-                    logger.warning(
-                        "Failed fetching job %s (%s): %s",
-                        job_id,
-                        source_url,
-                        response,
-                    )
-                    continue
-
-                descriptions.append(
-                    JobDescription(
-                        job_id=job_id,
-                        cleaned_text=response,
-                    )
-                )
-
-            if descriptions:
-                db.add_all(descriptions)
-                await db.commit()
-
-                logger.info(
-                    "Inserted %d descriptions",
-                    len(descriptions),
-                )
+            logger.info(
+                "Inserted %d descriptions",
+                len(descriptions),
+            )
 
     logger.info("Finished populating job descriptions")

@@ -1,12 +1,11 @@
-import asyncio
 import logging
-from itertools import batched
 
 from langchain_tavily import TavilySearch
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
+from app.core.batch import BatchProcessorConfig, process_in_batches
 from app.core.config.settings import settings
 from app.core.db.base import async_session
 from app.core.db.models.job import Job
@@ -87,38 +86,36 @@ async def populate_company_summaries(batch_size: int = 10) -> None:
 
         tavily = get_tavily()
 
-        for company_batch in batched(companies, batch_size, strict=False):
-            tasks = [
-                fetch_company_summary(tavily, company_name)
-                for company_name in company_batch
-            ]
+        batch_config = BatchProcessorConfig(
+            batch_size=batch_size, max_concurrency=batch_size
+        )
+        responses = await process_in_batches(
+            items=list(companies),
+            processor=lambda name: fetch_company_summary(tavily, name),
+            config=batch_config,
+        )
 
-            responses = await asyncio.gather(
-                *tasks,
-                return_exceptions=True,
+        for company_name, response in zip(companies, responses, strict=False):
+            if isinstance(response, Exception):
+                logger.warning(
+                    "Failed to summarize %s: %s",
+                    company_name,
+                    response,
+                )
+                continue
+
+            if not response:
+                continue
+
+            await db.execute(
+                update(Job)
+                .where(Job.company_name == company_name)
+                .values(company_summary=response)
             )
 
-            for company_name, response in zip(company_batch, responses, strict=False):
-                if isinstance(response, Exception):
-                    logger.warning(
-                        "Failed to summarize %s: %s",
-                        company_name,
-                        response,
-                    )
-                    continue
+            logger.info("Summarized: %s", company_name)
 
-                if not response:
-                    continue
-
-                await db.execute(
-                    update(Job)
-                    .where(Job.company_name == company_name)
-                    .values(company_summary=response)
-                )
-
-                logger.info("Summarized: %s", company_name)
-
-            await db.commit()
+        await db.commit()
 
 
 async def populate_for_companies(
@@ -177,35 +174,33 @@ async def populate_for_companies(
 
     tavily = get_tavily()
 
-    for company_batch in batched(missing, batch_size, strict=False):
-        tasks = [
-            fetch_company_summary(tavily, company_name)
-            for company_name in company_batch
-        ]
+    batch_config = BatchProcessorConfig(
+        batch_size=batch_size, max_concurrency=batch_size
+    )
+    responses = await process_in_batches(
+        items=list(missing),
+        processor=lambda name: fetch_company_summary(tavily, name),
+        config=batch_config,
+    )
 
-        responses = await asyncio.gather(
-            *tasks,
-            return_exceptions=True,
+    for company_name, response in zip(missing, responses, strict=False):
+        if isinstance(response, Exception):
+            logger.warning(
+                "Failed to summarize %s: %s",
+                company_name,
+                response,
+            )
+            continue
+
+        if not response:
+            continue
+
+        await db.execute(
+            update(Job)
+            .where(Job.company_name == company_name)
+            .values(company_summary=response)
         )
 
-        for company_name, response in zip(company_batch, responses, strict=False):
-            if isinstance(response, Exception):
-                logger.warning(
-                    "Failed to summarize %s: %s",
-                    company_name,
-                    response,
-                )
-                continue
+        logger.info("Summarized: %s", company_name)
 
-            if not response:
-                continue
-
-            await db.execute(
-                update(Job)
-                .where(Job.company_name == company_name)
-                .values(company_summary=response)
-            )
-
-            logger.info("Summarized: %s", company_name)
-
-        await db.commit()
+    await db.commit()
