@@ -4,7 +4,6 @@ import asyncio
 import sys
 from statistics import mean
 
-from dotenv import load_dotenv
 from langsmith import Client, aevaluate
 from loguru import logger
 
@@ -19,8 +18,6 @@ from app.evaluation.search import (
     RETRIEVAL_DATASET,
     retrieval_target,
 )
-
-_ = load_dotenv()
 
 # Metric key → acceptable relative-drop threshold (5 % by default)
 REGRESSION_THRESHOLDS: dict[str, float] = {
