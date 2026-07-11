@@ -4,12 +4,12 @@ from langchain_tavily import TavilySearch
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
-from app.core.retry import default_retry
 
 from app.core.batch import process_in_batches
 from app.core.config.settings import settings
 from app.core.db.base import async_session
 from app.core.db.models.job import Job
+from app.core.retry import default_retry
 
 logger = logging.getLogger(__name__)
 
