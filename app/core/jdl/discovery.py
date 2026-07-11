@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,28 +13,13 @@ from app.core.jdl.schemas import JobSearchCriteria
 logger = logging.getLogger(__name__)
 
 
+@dataclass(slots=True)
 class DiscoveryResult:
-    __slots__ = (
-        "pages_crawled",
-        "jobs_created",
-        "jobs_updated",
-        "jobs_closed",
-        "job_ids",
-    )
-
-    def __init__(
-        self,
-        pages_crawled: int = 0,
-        jobs_created: int = 0,
-        jobs_updated: int = 0,
-        jobs_closed: int = 0,
-        job_ids: list[str] | None = None,
-    ) -> None:
-        self.pages_crawled = pages_crawled
-        self.jobs_created = jobs_created
-        self.jobs_updated = jobs_updated
-        self.jobs_closed = jobs_closed
-        self.job_ids: list[str] = job_ids or []
+    pages_crawled: int = 0
+    jobs_created: int = 0
+    jobs_updated: int = 0
+    jobs_closed: int = 0
+    job_ids: list[str] = field(default_factory=list)
 
 
 async def run_discovery(
