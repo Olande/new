@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 import logging
-from functools import wraps
-
-from app.mcp.mcp_schemas import ErrorResponse
 
 logger = logging.getLogger("mcp")
 
@@ -38,29 +35,3 @@ class ValidationError(DomainException):
         super().__init__(message, "validation_error")
 
 
-def translate_mcp_exceptions(func):
-    """Decorator to catch domain exceptions and convert them to standard ErrorResponses."""
-
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        try:
-            return await func(*args, **kwargs)
-        except DomainException as e:
-            return ErrorResponse(
-                error=True, message=e.message, code=e.code
-            ).model_dump()
-        except PermissionError as e:
-            return ErrorResponse(
-                error=True, message=str(e), code="unauthorized"
-            ).model_dump()
-        except ValueError as e:
-            return ErrorResponse(
-                error=True, message=str(e), code="validation_error"
-            ).model_dump()
-        except Exception as e:
-            logger.exception(f"Unhandled error in {func.__name__}")
-            return ErrorResponse(
-                error=True, message=str(e), code="internal_error"
-            ).model_dump()
-
-    return wrapper

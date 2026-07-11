@@ -2,8 +2,7 @@ import hashlib
 from datetime import UTC, datetime
 from typing import Any
 
-from dateutil.parser import isoparse
-from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 from app.core.jdl.schemas import JobCreate, JobSourceCreate
 
@@ -69,29 +68,13 @@ class RawJobInput(BaseModel):
     )
 
     # We parse the dates explicitly in validators to support timestamp integers, etc.
-    posted_at: Any = Field(
+    posted_at: datetime | None = Field(
         default=None,
         validation_alias=AliasChoices(
             "posted_at", "updated_at", "createdAt", "publishedAt"
         ),
     )
-    first_seen_at: Any = Field(default=None)
-
-    @field_validator("posted_at", "first_seen_at", mode="before")
-    @classmethod
-    def parse_date_field(cls, value):
-        if value is None:
-            return None
-        try:
-            if isinstance(value, (int | float)):
-                return datetime.fromtimestamp(value / 1000, tz=UTC)
-            if isinstance(value, str):
-                if value.isdigit():
-                    return datetime.fromtimestamp(int(value) / 1000, tz=UTC)
-                return isoparse(value)
-        except (ValueError, TypeError, OverflowError):
-            pass
-        return None
+    first_seen_at: datetime | None = Field(default=None)
 
     @classmethod
     def _extract_locations_from_raw(cls, raw: Any) -> list[str]:

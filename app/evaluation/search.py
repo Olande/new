@@ -6,8 +6,8 @@ from typing import Any
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from tenacity import retry, stop_after_attempt, wait_exponential_jitter
 
-from app.core.retry_config import SEARCH_RETRY, with_retry
 from app.evaluation.constants import MATCHING_STYLES, NO_MATCH_STYLE
 
 # Re-export so callers don't need to import from constants directly
@@ -129,7 +129,7 @@ async def run_search(
     return ranked
 
 
-@with_retry(SEARCH_RETRY)
+@retry(wait=wait_exponential_jitter(initial=3, max=60), stop=stop_after_attempt(6))
 async def _embed_query(client: Any, query: str) -> list[float]:
     return await client.aembed_query(query)
 

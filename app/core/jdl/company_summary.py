@@ -4,12 +4,12 @@ from langchain_tavily import TavilySearch
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
+from tenacity import retry, stop_after_attempt, wait_exponential_jitter
 
-from app.core.batch import BatchProcessorConfig, process_in_batches
+from app.core.batch import process_in_batches
 from app.core.config.settings import settings
 from app.core.db.base import async_session
 from app.core.db.models.job import Job
-from app.core.retry_config import API_RETRY, with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ def get_tavily(include_answer: bool = True, k: int = 5) -> TavilySearch:
     )
 
 
-@with_retry(API_RETRY)
+@retry(wait=wait_exponential_jitter(initial=2, max=60), stop=stop_after_attempt(5))
 async def fetch_company_summary(
     tavily: TavilySearch,
     company_name: str,
@@ -86,13 +86,10 @@ async def populate_company_summaries(batch_size: int = 10) -> None:
 
         tavily = get_tavily()
 
-        batch_config = BatchProcessorConfig(
-            batch_size=batch_size, max_concurrency=batch_size
-        )
         responses = await process_in_batches(
             items=list(companies),
             processor=lambda name: fetch_company_summary(tavily, name),
-            config=batch_config,
+            batch_size=batch_size, max_concurrency=batch_size,
         )
 
         for company_name, response in zip(companies, responses, strict=False):
@@ -174,13 +171,10 @@ async def populate_for_companies(
 
     tavily = get_tavily()
 
-    batch_config = BatchProcessorConfig(
-        batch_size=batch_size, max_concurrency=batch_size
-    )
     responses = await process_in_batches(
         items=list(missing),
         processor=lambda name: fetch_company_summary(tavily, name),
-        config=batch_config,
+        batch_size=batch_size, max_concurrency=batch_size,
     )
 
     for company_name, response in zip(missing, responses, strict=False):

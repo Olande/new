@@ -4,10 +4,10 @@ import httpx
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from tenacity import retry, stop_after_attempt, wait_exponential_jitter
 
-from app.core.batch import BatchProcessorConfig, process_in_batches
+from app.core.batch import process_in_batches
 from app.core.db.models.job import Job, JobDescription, JobSource
-from app.core.retry_config import API_RETRY, with_retry
 
 JINA_PREFIX = "https://r.jina.ai/"
 
@@ -15,7 +15,7 @@ MAX_CONCURRENT_REQUESTS = 3
 REQUESTS_PER_SECOND = 2
 
 
-@with_retry(API_RETRY)
+@retry(wait=wait_exponential_jitter(initial=2, max=60), stop=stop_after_attempt(5))
 async def fetch_jina_content(
     client: httpx.AsyncClient,
     source_url: str,
@@ -69,15 +69,11 @@ async def populate_job_descriptions(
         timeout=60,
         follow_redirects=True,
     ) as client:
-        batch_config = BatchProcessorConfig(
-            batch_size=batch_size,
-            max_concurrency=MAX_CONCURRENT_REQUESTS,
-            rate_per_second=REQUESTS_PER_SECOND,
-        )
+
         responses = await process_in_batches(
             items=list(rows),
             processor=lambda row: fetch_jina_content(client, row.source_url),
-            config=batch_config,
+            batch_size=batch_size, max_concurrency=MAX_CONCURRENT_REQUESTS,
         )
 
         descriptions: list[JobDescription] = []
