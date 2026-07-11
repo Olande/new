@@ -4,7 +4,6 @@ import asyncio
 import json
 from typing import Annotated
 
-from dotenv import load_dotenv
 from langsmith import Client
 from loguru import logger
 from typer import Option, Typer
@@ -23,8 +22,6 @@ from app.evaluation.search import (
     precompute_query_embeddings,
     search_jobs_with_embedding,
 )
-
-_ = load_dotenv()
 
 app = Typer(
     name="run_local",
@@ -204,13 +201,11 @@ def optimize(
 
         return sum(running_ndcg) / len(running_ndcg)
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    with asyncio.Runner() as runner:
 
-    def objective(trial: optuna.Trial) -> float:
-        return loop.run_until_complete(_objective_async(trial))
+        def objective(trial: optuna.Trial) -> float:
+            return runner.run(_objective_async(trial))
 
-    try:
         study = optuna.create_study(
             direction="maximize",
             sampler=optuna.samplers.TPESampler(),
@@ -219,8 +214,6 @@ def optimize(
             ),
         )
         study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
-    finally:
-        loop.close()
 
     best = study.best_params
     best_val = study.best_value
