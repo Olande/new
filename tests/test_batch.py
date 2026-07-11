@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from app.core.batch import BatchProcessorConfig, process_in_batches
+from app.core.batch import process_in_batches
 
 
 @pytest.mark.asyncio
@@ -16,7 +16,7 @@ async def test_process_in_batches_all_succeed():
     results = await process_in_batches(
         items=[1, 2, 3],
         processor=double,
-        config=BatchProcessorConfig(batch_size=2, max_concurrency=2),
+        batch_size=2, max_concurrency=2,
     )
     assert results == [2, 4, 6]
 
@@ -29,7 +29,7 @@ async def test_process_in_batches_one_fails():
     results = await process_in_batches(
         items=[1, 0, 3],
         processor=divide,
-        config=BatchProcessorConfig(batch_size=2, return_exceptions=True),
+        batch_size=2, return_exceptions=True,
     )
     assert results[0] == 10
     assert isinstance(results[1], ZeroDivisionError)
@@ -44,7 +44,7 @@ async def test_process_in_batches_all_fail():
     results = await process_in_batches(
         items=[0, 0],
         processor=divide,
-        config=BatchProcessorConfig(batch_size=1, return_exceptions=True),
+        batch_size=1, return_exceptions=True,
     )
     assert len(results) == 2
     assert all(isinstance(r, ZeroDivisionError) for r in results)
@@ -58,6 +58,6 @@ async def test_process_in_batches_empty():
     results = await process_in_batches(
         items=[],
         processor=identity,
-        config=BatchProcessorConfig(),
+
     )
     assert results == []

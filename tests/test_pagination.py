@@ -1,6 +1,6 @@
 import pytest
 
-from app.core.pagination import PaginationParams, paginate_api
+from app.core.pagination import paginate_api
 
 
 @pytest.mark.asyncio
@@ -27,7 +27,7 @@ async def test_paginate_multi_page():
     results = [
         item
         async for item in paginate_api(
-            fetch_page, lambda d: d["jobs"], PaginationParams(per_page=10)
+            fetch_page, lambda d: d["jobs"], per_page=10
         )
     ]
     assert len(results) == 25
