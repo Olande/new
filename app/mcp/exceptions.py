@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-import logging
-
-logger = logging.getLogger("mcp")
-
 
 class DomainException(Exception):  # noqa: N818
     """Base exception for all domain logic errors."""
@@ -33,5 +29,3 @@ class ValidationError(DomainException):
 
     def __init__(self, message: str):
         super().__init__(message, "validation_error")
-
-

@@ -12,19 +12,17 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import logging
 import time
 from uuid import UUID
 
 import httpx
+from loguru import logger
 
 from app.core.config.settings import Settings
 from app.core.jdl.client import JobDataLakeClient
 from app.core.jdl.normalization import normalize_job
 from app.mcp.mcp_schemas import JobDetailOutput, JobHit, SearchJobsOutput
 from app.mcp.repositories.job_repo import JobRepository
-
-logger = logging.getLogger(__name__)
 
 # Module-level in-flight dedup map: query_key -> asyncio.Future
 _in_flight: dict[str, asyncio.Future] = {}

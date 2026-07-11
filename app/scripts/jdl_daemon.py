@@ -1,13 +1,11 @@
 # scripts/jdl_daemon.py
 import asyncio
-import logging
+
+from loguru import logger
 
 from app.core.db.base import async_session
 from app.core.jdl.discovery import run_discovery
 from app.core.jdl.seed_criteria import DISCOVERY_SEED_CRITERIA
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("jdl_daemon")
 
 INTERVAL_SECONDS = 43200
 

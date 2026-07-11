@@ -1,12 +1,11 @@
-
 """FastMCP Server for Postgres-backed Job platform."""
 
 from __future__ import annotations
 
-import logging
 import uuid
 from typing import Any
 
+from loguru import logger
 from mcp.server.fastmcp import FastMCP
 
 from app.core.config.settings import settings as app_settings
@@ -35,8 +34,6 @@ from app.mcp.services.job_fallback_service import JobFallbackService
 from app.mcp.services.job_service import JobService
 from app.mcp.services.profile_service import ProfileService
 from app.mcp.services.submission_service import SubmissionService
-
-logger = logging.getLogger("mcp")
 
 mcp = FastMCP("careerpilot-jobs-postgres")
 
@@ -70,9 +67,11 @@ async def search_jobs_tool(
             fallback_service=_build_fallback_service(s),
             settings=app_settings,
         )
-        return (await svc.search_jobs(
-            query=inp.query, limit=inp.limit, cosine_threshold=inp.cosine_threshold
-        )).model_dump()
+        return (
+            await svc.search_jobs(
+                query=inp.query, limit=inp.limit, cosine_threshold=inp.cosine_threshold
+            )
+        ).model_dump()
 
 
 @mcp.tool(
@@ -117,13 +116,15 @@ async def create_application_draft_tool(
     user = require_user()
     async with async_session() as s:
         svc = ApplicationService(ApplicationRepository(s), JobRepository(s))
-        return (await svc.create_draft(
-            user=user,
-            job_id=inp.job_id,
-            resume_draft=inp.resume_draft,
-            cover_letter_draft=inp.cover_letter_draft,
-            notes=inp.notes,
-        )).model_dump()
+        return (
+            await svc.create_draft(
+                user=user,
+                job_id=inp.job_id,
+                resume_draft=inp.resume_draft,
+                cover_letter_draft=inp.cover_letter_draft,
+                notes=inp.notes,
+            )
+        ).model_dump()
 
 
 @mcp.tool(
@@ -138,12 +139,16 @@ async def submit_application_tool(
     )
     user = require_user()
     async with async_session() as s:
-        svc = SubmissionService(AgentTaskRepository(s), ApplicationRepository(s), JobRepository(s))
-        return (await svc.submit_application(
-            user=user,
-            job_id=inp.job_id,
-            application_id=inp.application_id,
-        )).model_dump()
+        svc = SubmissionService(
+            AgentTaskRepository(s), ApplicationRepository(s), JobRepository(s)
+        )
+        return (
+            await svc.submit_application(
+                user=user,
+                job_id=inp.job_id,
+                application_id=inp.application_id,
+            )
+        ).model_dump()
 
 
 @mcp.tool(
@@ -153,12 +158,16 @@ async def confirm_submission_tool(task_id: str, approved: bool) -> dict[str, Any
     inp = ConfirmSubmissionInput(task_id=uuid.UUID(task_id), approved=approved)
     user = require_user()
     async with async_session() as s:
-        svc = SubmissionService(AgentTaskRepository(s), ApplicationRepository(s), JobRepository(s))
-        return (await svc.confirm_submission(
-            user=user,
-            task_id=inp.task_id,
-            approved=inp.approved,
-        )).model_dump()
+        svc = SubmissionService(
+            AgentTaskRepository(s), ApplicationRepository(s), JobRepository(s)
+        )
+        return (
+            await svc.confirm_submission(
+                user=user,
+                task_id=inp.task_id,
+                approved=inp.approved,
+            )
+        ).model_dump()
 
 
 def create_asgi_app():

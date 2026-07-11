@@ -1,7 +1,7 @@
-import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config.settings import settings
@@ -9,8 +9,6 @@ from app.core.jdl.client import JobDataLakeClient
 from app.core.jdl.normalization import normalize_job
 from app.core.jdl.repository import close_stale_jobs, upsert_job, upsert_job_source
 from app.core.jdl.schemas import JobSearchCriteria
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)

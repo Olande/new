@@ -1,6 +1,5 @@
-import logging
-
 from langchain_tavily import TavilySearch
+from loguru import logger
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -10,8 +9,6 @@ from app.core.config.settings import settings
 from app.core.db.base import async_session
 from app.core.db.models.job import Job
 from app.core.retry import default_retry
-
-logger = logging.getLogger(__name__)
 
 
 def get_tavily(include_answer: bool = True, k: int = 5) -> TavilySearch:
