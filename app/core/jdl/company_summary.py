@@ -62,72 +62,19 @@ async def backfill_summaries_from_existing(db: AsyncSession) -> int:
     return result.rowcount or 0
 
 
-async def populate_company_summaries(batch_size: int = 10) -> None:
-    """
-    Populate summaries for all companies that currently have no summary.
-    """
-    async with async_session() as db:
-        copied = await backfill_summaries_from_existing(db)
-
-        if copied:
-            logger.info(
-                "Copied existing summaries onto %d job rows (no API cost)",
-                copied,
-            )
-
-        result = await db.execute(
-            select(Job.company_name).where(Job.company_summary.is_(None)).distinct()
-        )
-        companies = result.scalars().all()
-
-        if not companies:
-            logger.info("No companies need a new summary lookup")
-            return
-
-        tavily = get_tavily()
-
-        responses = await process_in_batches(
-            items=list(companies),
-            processor=lambda name: fetch_company_summary(tavily, name),
-            batch_size=batch_size,
-            max_concurrency=batch_size,
-        )
-
-        for company_name, response in zip(companies, responses, strict=False):
-            if isinstance(response, Exception):
-                logger.warning(
-                    "Failed to summarize %s: %s",
-                    company_name,
-                    response,
-                )
-                continue
-
-            if not response:
-                continue
-
-            await db.execute(
-                update(Job)
-                .where(Job.company_name == company_name)
-                .values(company_summary=response)
-            )
-
-            logger.info("Summarized: %s", company_name)
-
-        await db.commit()
-
-
-async def populate_for_companies(
+async def _backfill_and_fetch(
     db: AsyncSession,
-    company_names: set[str],
+    company_filter: set[str] | None = None,
     batch_size: int = 10,
 ) -> None:
+    """Shared backfill-and-fetch logic for company summaries.
+    When company_filter is None, processes all companies.
     """
-    Populate company_summary only for the specified companies.
-    """
-    if not company_names:
-        return
-
     source_job = aliased(Job)
+
+    backfill_where = [Job.company_summary.is_(None)]
+    if company_filter is not None:
+        backfill_where.append(Job.company_name.in_(company_filter))
 
     backfill_stmt = (
         update(Job)
@@ -142,10 +89,7 @@ async def populate_for_companies(
                 .scalar_subquery()
             )
         )
-        .where(
-            Job.company_name.in_(company_names),
-            Job.company_summary.is_(None),
-        )
+        .where(*backfill_where)
     )
 
     backfilled = (await db.execute(backfill_stmt)).rowcount or 0
@@ -156,15 +100,11 @@ async def populate_for_companies(
             backfilled,
         )
 
-    result = await db.execute(
-        select(Job.company_name)
-        .where(
-            Job.company_name.in_(company_names),
-            Job.company_summary.is_(None),
-        )
-        .distinct()
-    )
+    select_where = [Job.company_summary.is_(None)]
+    if company_filter is not None:
+        select_where.append(Job.company_name.in_(company_filter))
 
+    result = await db.execute(select(Job.company_name).where(*select_where).distinct())
     missing = result.scalars().all()
 
     if not missing:
@@ -200,3 +140,20 @@ async def populate_for_companies(
         logger.info("Summarized: %s", company_name)
 
     await db.commit()
+
+
+async def populate_company_summaries(batch_size: int = 10) -> None:
+    """Populate summaries for all companies that currently have no summary."""
+    async with async_session() as db:
+        await _backfill_and_fetch(db, company_filter=None, batch_size=batch_size)
+
+
+async def populate_for_companies(
+    db: AsyncSession,
+    company_names: set[str],
+    batch_size: int = 10,
+) -> None:
+    """Populate company_summary only for the specified companies."""
+    if not company_names:
+        return
+    await _backfill_and_fetch(db, company_filter=company_names, batch_size=batch_size)
