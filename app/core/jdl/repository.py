@@ -1,4 +1,5 @@
 import uuid
+from collections import defaultdict
 from datetime import UTC, datetime
 
 from sqlalchemy import text
@@ -13,25 +14,7 @@ async def upsert_job(
     db: AsyncSession, normalized, now_utc: datetime
 ) -> tuple[Job, bool]:
     """Upsert a Job by dedup_hash. Returns (job, created)."""
-    values = {
-        "dedup_hash": normalized.dedup_hash,
-        "title": normalized.title,
-        "company_name": normalized.company_name,
-        "domain_name": normalized.domain_name,
-        "role": normalized.role,
-        "job_function": normalized.job_function,
-        "seniority": normalized.seniority,
-        "employment_type": normalized.employment_type,
-        "remote_type": normalized.remote_type,
-        "locations": normalized.locations,
-        "countries": normalized.countries,
-        "required_skills": normalized.required_skills,
-        "employee_count": normalized.employee_count,
-        "funding": normalized.funding,
-        "status": "active",
-        "posted_at": normalized.posted_at,
-        "last_seen_at": now_utc,
-    }
+    values = normalized.model_dump(exclude={"source"}) | {"last_seen_at": now_utc}
 
     stmt = (
         pg_insert(Job)
@@ -124,17 +107,17 @@ async def close_stale_jobs(
     if not unseen_sources:
         return 0
 
-    jobs_to_check: set = set()
     for src in unseen_sources:
         src.unconfirmed_count += 1
-        jobs_to_check.add(src.job_id)
+
+    jobs_to_check = {src.job_id for src in unseen_sources}
 
     stmt_all_srcs = select(JobSource).where(JobSource.job_id.in_(jobs_to_check))
     all_srcs = (await db.execute(stmt_all_srcs)).scalars().all()
 
-    srcs_by_job: dict = {}
+    srcs_by_job: dict[str, list[JobSource]] = defaultdict(list)
     for s in all_srcs:
-        srcs_by_job.setdefault(s.job_id, []).append(s)
+        srcs_by_job[s.job_id].append(s)
 
     jobs_to_close = [
         job_id
