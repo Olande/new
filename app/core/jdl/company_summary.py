@@ -30,35 +30,6 @@ async def fetch_company_summary(
     return response.get("answer")
 
 
-async def backfill_summaries_from_existing(db: AsyncSession) -> int:
-    """
-    Copy an existing company_summary onto any row of the same company
-    that doesn't already have one.
-    """
-    source_job = aliased(Job)
-
-    stmt = (
-        update(Job)
-        .values(
-            company_summary=(
-                select(source_job.company_summary)
-                .where(
-                    source_job.company_name == Job.company_name,
-                    source_job.company_summary.is_not(None),
-                )
-                .limit(1)
-                .scalar_subquery()
-            )
-        )
-        .where(Job.company_summary.is_(None))
-    )
-
-    result = await db.execute(stmt)
-    await db.commit()
-
-    return result.rowcount or 0
-
-
 async def _backfill_and_fetch(
     db: AsyncSession,
     company_filter: set[str] | None = None,

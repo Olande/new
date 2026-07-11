@@ -13,7 +13,7 @@ from app.mcp.mcp_server import create_asgi_app
 
 
 def test_jwt_extraction_and_context_vars():
-    # 1. Test manual token payload extraction (Base64 fallback or PyJWT)
+    # 1. Test JWT payload extraction via PyJWT
     token_data = {"sub": "user-123", "tid": "tenant-456"}
     # Create an unsigned JWT token manually for extraction testing
     token = jwt.encode(token_data, "secret", algorithm="HS256")
@@ -61,5 +61,3 @@ def test_tenant_middleware_context_propagation():
 
     # The ASGI middleware runs and clears context after. Ensure it's cleared:
     assert get_current_user_id() is None
-
-
