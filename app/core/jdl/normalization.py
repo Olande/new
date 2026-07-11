@@ -2,6 +2,7 @@ import hashlib
 from datetime import UTC, datetime
 from typing import Any
 
+from more_itertools import unique_everseen
 from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 from app.core.jdl.schemas import JobCreate, JobSourceCreate
@@ -24,22 +25,11 @@ def compute_dedup_hash(company_name: str, title: str, skills: list[str]) -> str:
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
 
-def _unique_everseen(iterable, key):
-    """Yield unique elements preserving order, using key() for equality."""
-    seen = set()
-    seen_add = seen.add
-    for element in iterable:
-        k = key(element)
-        if k not in seen:
-            seen_add(k)
-            yield element
-
-
 def normalize_skills(skills: list[str] | None) -> list[str]:
     if not skills:
         return []
     stripped = [s.strip() for s in skills if s and s.strip()]
-    return list(_unique_everseen(stripped, key=str.lower))
+    return list(unique_everseen(stripped, key=str.lower))
 
 
 class RawJobInput(BaseModel):

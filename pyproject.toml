@@ -44,6 +44,7 @@ dependencies = [
     "uvicorn>=0.50.2",
     "typer>=0.12.3",
     "optuna>=3.6.1",
+    "more-itertools>=11.1.0",
 ]
 
 
@@ -66,4 +67,5 @@ asyncio_default_test_loop_scope = "session"
 [dependency-groups]
 dev = [
     "pytest-asyncio>=1.4.0",
+    "pytest-mock>=3.15.1",
 ]
