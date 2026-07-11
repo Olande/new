@@ -50,29 +50,11 @@ class JobRepository:
         source_rows = []
         for j in jobs:
             job_id = uuid.uuid4()
-            job_rows.append(
-                {
-                    "id": job_id,
-                    "dedup_hash": j.dedup_hash,
-                    "title": j.title,
-                    "company_name": j.company_name,
-                    "domain_name": j.domain_name,
-                    "role": j.role,
-                    "job_function": j.job_function,
-                    "seniority": j.seniority,
-                    "employment_type": j.employment_type,
-                    "remote_type": j.remote_type,
-                    "locations": j.locations,
-                    "countries": j.countries,
-                    "required_skills": j.required_skills,
-                    "employee_count": j.employee_count,
-                    "funding": j.funding,
-                    "status": "active",
-                    "posted_at": j.posted_at,
-                    "fallback_source": "jdl_api",
-                    "last_seen_at": now,
-                }
+            vals = j.model_dump(exclude={"source"})
+            vals.update(
+                {"id": job_id, "fallback_source": "jdl_api", "last_seen_at": now}
             )
+            job_rows.append(vals)
             source_rows.append(
                 {
                     "job_id": job_id,
